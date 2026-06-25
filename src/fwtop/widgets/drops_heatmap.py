@@ -78,12 +78,30 @@ class DropsHeatmap(Widget):
                 text.append(_CELL, style=self._heat(v, peak))
             text.append("\n")
 
-        # Footer: smoke→fire legend plus the current peak the scale maps to.
-        text.append("  smoke ", style="#5a5a5a")
-        text.append("░▒▓█", style="#a55a3a")
-        text.append(" fire", style="#ff2020")
-        text.append(f"   0 → {peak:,.0f} pkt/s\n", style="#808080")
+        # Pad with blank lines so the legend sits at the base of the window,
+        # then append it centered. One row each is consumed by the heatmap
+        # rows and the legend line itself.
+        pad_lines = self.size.height - len(order) - 1
+        if pad_lines > 0:
+            text.append("\n" * pad_lines)
+        text.append(self._legend(peak))
         return text
+
+    def _legend(self, peak: float) -> Text:
+        """Smoke→fire legend, horizontally centered to the widget width.
+
+        Centering is done by prepending spaces (rather than Text justify),
+        since an appended child Text doesn't carry its justify into the parent.
+        """
+        legend = Text()
+        legend.append("smoke ", style="#5a5a5a")
+        legend.append("░▒▓█", style="#a55a3a")
+        legend.append(" fire", style="#ff2020")
+        legend.append(f"   0 → {peak:,.0f} pkt/s", style="#808080")
+        pad = max((self.size.width - legend.cell_len) // 2, 0)
+        if pad:
+            legend = Text(" " * pad) + legend
+        return legend
 
     @staticmethod
     def _heat(value: float, peak: float) -> str:
