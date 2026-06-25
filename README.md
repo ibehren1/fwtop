@@ -6,6 +6,16 @@ Where a host monitor shows your machine's own traffic, `fwtop` is built for the 
 
 Built with [Textual](https://github.com/Textualize/textual), [Plotext](https://github.com/piccolomo/plotext), and [psutil](https://github.com/giampaolo/psutil).
 
+## Screenshots
+
+The Overview tab — WAN/LAN throughput charts, the smoke→fire drops heatmap, and the zone-grouped Interfaces table (shown with `--demo` data):
+
+![fwtop Overview tab](images/screenshot.svg)
+
+The Connections tab — WAN-facing flows on the left, internal LAN flows on the right:
+
+![fwtop Connections tab](images/connections.svg)
+
 ## Features
 
 - **Per-interface flows** — RX/TX rates, cumulative totals, and error/drop counters for every interface, so forwarded (through) traffic is visible per link
