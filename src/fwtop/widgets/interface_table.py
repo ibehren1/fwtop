@@ -79,8 +79,13 @@ class InterfaceTable(Widget):
         # Pin each column to a fixed width so cells never resize as values
         # grow (e.g. a link ramping from idle to 100 Gbps).
         for col in dt.columns.values():
+            name = col.label.plain
             col.auto_width = False
-            col.width = _COL_WIDTHS.get(col.label.plain, col.width)
+            col.width = _COL_WIDTHS.get(name, col.width)
+            # Right-justify the rate headers to sit over their right-aligned
+            # Mbps values.
+            if name in ("RX rate", "TX rate"):
+                col.label = Text(name, justify="right")
 
     def update_stats(self, interfaces: list[InterfaceStat]) -> None:
         try:
