@@ -12,6 +12,7 @@ from fwtop import __version__
 from fwtop.collector import Collector
 from fwtop.config import ZONE_CYCLE, Config
 from fwtop.resolve import Resolver
+from fwtop.sources.demo import DEMO_STATIC_NAMES
 from fwtop.widgets import (
     ConnectionsTable,
     ConntrackPanel,
@@ -197,9 +198,15 @@ class FwTopApp(App):
         yield Label("", id="status-label", markup=False)
         yield Footer()
 
+    def _make_resolver(self) -> Resolver:
+        # In demo mode seed the resolver with the synthetic hosts' names, since
+        # the private LAN addresses have no real PTR records to look up.
+        static = DEMO_STATIC_NAMES if self.collector.demo else None
+        return Resolver(static_names=static)
+
     def on_mount(self) -> None:
         if self.resolve_enabled:
-            self.resolver = Resolver()
+            self.resolver = self._make_resolver()
         self._start_time = monotonic()
         self._update_subtitle()
 
@@ -306,7 +313,7 @@ class FwTopApp(App):
     def action_toggle_resolve(self) -> None:
         self.resolve_enabled = not self.resolve_enabled
         if self.resolve_enabled and self.resolver is None:
-            self.resolver = Resolver()
+            self.resolver = self._make_resolver()
         self._update_subtitle()
 
     def action_change_interval(self) -> None:

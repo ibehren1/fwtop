@@ -20,6 +20,19 @@ _LAN_HOSTS = ("192.168.1.10", "192.168.1.42", "192.168.1.77", "10.0.10.5")
 _WAN_HOSTS = ("203.0.113.9", "198.51.100.23", "8.8.8.8", "1.1.1.1", "140.82.121.4")
 _WAN_IP = "203.0.113.2"  # the router's public address (NAT egress)
 
+# Friendly names for the synthetic hosts, mimicking a router's local DNS /
+# DHCP lease table. Private LAN addresses have no public PTR record, so
+# without these the demo could never show source/LAN-side resolution.
+DEMO_STATIC_NAMES = {
+    "192.168.1.10": "desktop.lan",
+    "192.168.1.42": "laptop.lan",
+    "192.168.1.77": "nas.lan",
+    "10.0.10.5": "iot-hub.lan",
+    "203.0.113.2": "router.wan",
+    "203.0.113.9": "vpn-peer.example.net",
+    "198.51.100.23": "mail.example.org",
+}
+
 
 class DemoSource:
     """Synthetic data source producing plausible, time-varying router metrics.
