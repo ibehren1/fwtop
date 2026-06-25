@@ -84,17 +84,6 @@ Footer {
     background: #0e0e20;
 }
 
-#drops-heatmap {
-    height: auto;
-    min-height: 5;
-    max-height: 12;
-    border: round #303050;
-    border-title-color: #ff5050;
-    border-title-align: left;
-    background: #0e0e20;
-    padding: 0;
-}
-
 #interfaces {
     height: 1fr;
     min-height: 8;
@@ -104,9 +93,9 @@ Footer {
     background: #0e0e20;
 }
 
-/* ── Connections & Firewall tabs: full-bleed tables ── */
+/* ── Connections, Firewall & Drops tabs: full-bleed panels ── */
 
-#conns-table, #fw-table {
+#conns-table, #fw-table, #drops-heatmap {
     height: 1fr;
     margin: 0 1;
     border: round #303050;
@@ -120,6 +109,11 @@ Footer {
 
 #fw-table {
     border-title-color: #ff5050;
+}
+
+#drops-heatmap {
+    border-title-color: #ff5050;
+    padding: 0;
 }
 
 #status-label {

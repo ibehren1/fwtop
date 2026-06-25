@@ -151,6 +151,9 @@ class FwTopApp(App):
         Binding("1", "show_tab('overview')", "Overview"),
         Binding("2", "show_tab('connections')", "Connections"),
         Binding("3", "show_tab('firewall')", "Firewall"),
+        Binding("4", "show_tab('drops')", "Drops"),
+        Binding("w", "conns_sub('sub-wan')", "WAN conns"),
+        Binding("l", "conns_sub('sub-lan')", "LAN conns"),
     ]
 
     def __init__(
@@ -173,7 +176,7 @@ class FwTopApp(App):
 
     def compose(self) -> ComposeResult:
         yield Header()
-        with TabbedContent(initial="overview"):
+        with TabbedContent(initial="overview", id="main-tabs"):
             with TabPane("Overview", id="overview"):
                 with Horizontal(id="main-row"):
                     with Vertical(id="left-col"):
@@ -184,12 +187,13 @@ class FwTopApp(App):
                         with Horizontal(id="charts-row"):
                             yield ThroughputChart("WAN throughput (Mb/s)", id="wan-chart")
                             yield ThroughputChart("LAN throughput (Mb/s)", id="lan-chart")
-                        yield DropsHeatmap(id="drops-heatmap")
                         yield InterfaceTable(id="interfaces")
             with TabPane("Connections", id="connections"):
                 yield ConnectionsTable(id="conns-table")
             with TabPane("Firewall", id="firewall"):
                 yield FirewallPanel(id="fw-table")
+            with TabPane("Drops", id="drops"):
+                yield DropsHeatmap(id="drops-heatmap")
         yield Label("", id="status-label", markup=False)
         yield Footer()
 
@@ -288,7 +292,12 @@ class FwTopApp(App):
     # ── actions ──────────────────────────────────────────────────────────
 
     def action_show_tab(self, tab: str) -> None:
-        self.query_one(TabbedContent).active = tab
+        self.query_one("#main-tabs", TabbedContent).active = tab
+
+    def action_conns_sub(self, sub: str) -> None:
+        # Jump to the Connections tab and select the WAN/LAN sub-tab.
+        self.query_one("#main-tabs", TabbedContent).active = "connections"
+        self.query_one("#conns-table", ConnectionsTable).show_sub(sub)
 
     def action_toggle_pause(self) -> None:
         self.paused = not self.paused

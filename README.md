@@ -8,11 +8,15 @@ Built with [Textual](https://github.com/Textualize/textual), [Plotext](https://g
 
 ## Screenshots
 
-The Overview tab — WAN/LAN throughput charts, the smoke→fire drops heatmap, and the zone-grouped Interfaces table (shown with `--demo` data):
+The Overview tab — WAN/LAN throughput charts and the zone-grouped Interfaces table (shown with `--demo` data):
 
 ![fwtop Overview tab](images/screenshot.svg)
 
-The Connections tab — WAN-facing flows on the left, internal LAN flows on the right:
+The Drops tab — a smoke→fire heatmap, one ticking row per firewall drop/reject rule:
+
+![fwtop Drops tab](images/drops.svg)
+
+The Connections tab — WAN and LAN sub-tabs, with both endpoints reverse-DNS resolved:
 
 ![fwtop Connections tab](images/connections.svg)
 
@@ -24,7 +28,7 @@ The Connections tab — WAN-facing flows on the left, internal LAN flows on the 
 - **Drops heatmap** — a ticking grid, one row per drop/reject rule, colored smoke→fire (gray low, red high) so spikes light up at a glance
 - **Zone categorization** — label each interface WAN / WAN-Tunnel / LAN / LAN-Tunnel / other; saved to a config file and editable at runtime
 - Side-by-side rolling 60-second throughput charts — **WAN in red shades, LAN in green shades**, each overlaying its physical link and its tunnel (WireGuard/GRE/IPsec) traffic, braille-dot plotted
-- **Two-column connections view** — WAN-facing flows (NAT'd/public) on the left, internal LAN flows on the right
+- **Connections view** — WAN and LAN sub-tabs splitting NAT'd/public flows from internal ones; both endpoints reverse-DNS resolved
 - CPU usage panel (user / system / total / fwtop process)
 - Optional reverse-DNS resolution of IPs, toggleable at runtime
 - `--demo` mode with synthetic data — runs anywhere, no kernel access or root needed
@@ -109,6 +113,9 @@ sudo fwtop -r -n 0.5
 | `1` | Overview tab |
 | `2` | Connections tab |
 | `3` | Firewall tab |
+| `4` | Drops tab |
+| `w` | Connections tab, WAN sub-tab |
+| `l` | Connections tab, LAN sub-tab |
 
 ## Dashboard
 
@@ -116,22 +123,12 @@ sudo fwtop -r -n 0.5
 
 A two-column layout. The left column stacks **Summary** (aggregate
 throughput, tracked connections, drop rate, uptime), **CPU**, and a
-**Conntrack** breakdown (capacity bar, per-protocol bars, top TCP states).
+**Conntrack** breakdown (capacity bar, per-protocol bars, per-state bars).
 The right column shows two side-by-side rolling throughput charts — **WAN**
-(red shades) and **LAN** (green shades) — then a **Drops Heatmap**, then the
-**Interfaces** table.
+(red shades) and **LAN** (green shades) — above the **Interfaces** table.
 
 The throughput charts each plot up to four lines: the physical link's down/up
 plus its tunnel's down/up.
-
-The **Drops Heatmap** is a ticking grid with one row per firewall drop/reject
-rule and one column per refresh tick, scrolling left as time advances. Each
-cell's color runs **smoke→fire** — faint gray at low drop rates, warming
-through embers to bright red at the peak — scaled to the busiest cell on
-screen, so a spike in dropped traffic (a scan, a brute-force burst) lights up
-at a glance. The newest tick is the right-hand column; a footer shows the
-smoke→fire legend and the current peak rate the color scale maps to. The grid
-expands and contracts with the window.
 
 The **Interfaces** table groups rows into zone sections (WAN → WAN-Tunnel →
 LAN → LAN-Tunnel → other), each under a heading; rows keep a stable order and
@@ -144,17 +141,33 @@ The heaviest conntrack flows, one row per connection: protocol, original
 source → destination, the NAT reply address when translation is in effect,
 TCP state, and per-flow packet/byte volume.
 
-Flows are split into two side-by-side columns. Conntrack entries carry no
-interface label, so the split is inferred: **WAN / WAN-Tunnel** traffic on the
-left (flows that were NAT'd out or touch a public address) and **LAN / Other**
-internal flows on the right (purely private endpoint to private endpoint, no
-NAT). Each heading shows the live count for that side.
+Flows are split into two sub-tabs — **WAN** and **LAN** (keys `w` / `l`).
+Conntrack entries carry no interface label, so the split is inferred: the
+**WAN** sub-tab holds flows that were NAT'd out or touch a public address (WAN
+and WAN-Tunnel traffic), and the **LAN** sub-tab holds purely internal flows
+(private endpoint to private endpoint, no NAT). Each sub-tab label shows its
+live flow count.
+
+With reverse-DNS resolution enabled (the `-r` flag or the `r` key), both the
+source and destination addresses — and the NAT reply address — are resolved to
+hostnames when a PTR record exists, falling back to the raw IP otherwise.
 
 ### Firewall tab
 
 Every firewall rule counter, with **drops and rejects sorted to the top** and
 color-coded by verdict. Shows per-rule packet/byte rates so a spike in
 dropped traffic (a scan, a brute-force attempt, a misconfig) jumps out.
+
+### Drops tab
+
+A full-screen ticking heatmap with one row per firewall drop/reject rule and
+one column per refresh tick, scrolling left as time advances. Each cell's
+color runs **smoke→fire** — faint gray at low drop rates, warming through
+embers to bright red at the peak — scaled to the busiest cell on screen, so a
+spike in dropped traffic (a scan, a brute-force burst) lights up at a glance.
+The newest tick is the right-hand column; a footer shows the smoke→fire legend
+and the current peak rate the color scale maps to. The grid expands and
+contracts with the window.
 
 ## Interface zones
 

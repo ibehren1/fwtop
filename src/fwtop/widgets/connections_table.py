@@ -2,47 +2,29 @@ from __future__ import annotations
 
 from rich.text import Text
 from textual.app import ComposeResult
-from textual.containers import Horizontal, Vertical
 from textual.widget import Widget
-from textual.widgets import DataTable, Label
+from textual.widgets import DataTable, TabbedContent, TabPane
 
 from fwtop.models import Connection
 from fwtop.stats import format_bytes
 
 
 class ConnectionsTable(Widget):
-    """Top conntrack flows in two columns.
+    """Top conntrack flows, split into WAN and LAN sub-tabs.
 
     Conntrack entries carry no interface label, so flows are split by
     :attr:`Connection.is_wan_facing`: NAT'd or public-touching flows (WAN and
-    WAN-Tunnel traffic) on the left, purely internal flows on the right.
+    WAN-Tunnel traffic) under the WAN sub-tab, purely internal flows under LAN.
+    Each sub-tab is a full-width table; both source and destination addresses
+    are reverse-DNS resolved when resolution is enabled.
     """
 
     DEFAULT_CSS = """
     ConnectionsTable {
         height: 100%;
     }
-    ConnectionsTable #conns-split {
+    ConnectionsTable TabbedContent {
         height: 100%;
-        layout: horizontal;
-    }
-    ConnectionsTable .conns-col {
-        width: 1fr;
-        height: 100%;
-    }
-    ConnectionsTable .conns-col-left {
-        margin-right: 1;
-    }
-    ConnectionsTable .conns-heading {
-        height: 1;
-        text-style: bold;
-        padding: 0 1;
-    }
-    ConnectionsTable #heading-wan {
-        color: #ff5050;
-    }
-    ConnectionsTable #heading-other {
-        color: #50ffa0;
     }
     ConnectionsTable DataTable {
         height: 1fr;
@@ -56,33 +38,101 @@ class ConnectionsTable(Widget):
     def set_resolver(self, resolver) -> None:
         self._resolver = resolver
 
+    def show_sub(self, sub: str) -> None:
+        """Activate a sub-tab ('sub-wan' or 'sub-lan')."""
+        try:
+            self.query_one("#conns-subtabs", TabbedContent).active = sub
+        except Exception:
+            pass
+
     def compose(self) -> ComposeResult:
-        with Horizontal(id="conns-split"):
-            with Vertical(classes="conns-col conns-col-left"):
-                yield Label("WAN / WAN-Tunnel", classes="conns-heading", id="heading-wan")
+        with TabbedContent(initial="sub-wan", id="conns-subtabs"):
+            with TabPane("WAN", id="sub-wan"):
                 yield DataTable(id="dt-conns-wan")
-            with Vertical(classes="conns-col"):
-                yield Label("LAN / Other", classes="conns-heading", id="heading-other")
-                yield DataTable(id="dt-conns-other")
+            with TabPane("LAN", id="sub-lan"):
+                yield DataTable(id="dt-conns-lan")
+
+    # Columns with a fixed width; the remaining horizontal space is divided
+    # among the variable-length address columns (Source/Destination/NAT) so
+    # the table always fills the full terminal width.
+    _FIXED_WIDTHS = {
+        "Proto": 6,
+        "State": 12,
+        "Packets": 11,
+        "Bytes": 11,
+    }
+    _FLEX_COLUMNS = ("Source", "Destination", "NAT →")
+    # Roughly how to divide leftover space among the flex columns: source and
+    # destination get the lion's share, the NAT reply a bit less.
+    _FLEX_WEIGHTS = {"Source": 4, "Destination": 4, "NAT →": 3}
 
     def on_mount(self) -> None:
-        for table_id in ("#dt-conns-wan", "#dt-conns-other"):
+        for table_id in ("#dt-conns-wan", "#dt-conns-lan"):
             dt = self.query_one(table_id, DataTable)
             dt.cursor_type = "row"
             dt.zebra_stripes = True
             dt.add_columns(
                 "Proto", "Source", "Destination", "NAT →", "State", "Packets", "Bytes"
             )
+            for col in dt.columns.values():
+                col.auto_width = False
+        self._resize_columns()
 
-    def update_stats(self, connections: list[Connection], limit: int = 50) -> None:
+    def on_resize(self) -> None:
+        self._resize_columns()
+
+    def on_tabbed_content_tab_activated(self, event: TabbedContent.TabActivated) -> None:
+        # A newly revealed sub-tab's DataTable was size 0 while hidden, so its
+        # flex columns were pinned to the minimum. Recompute once it has laid
+        # out at its real width.
+        self.call_after_refresh(self._resize_columns)
+
+    def _resize_columns(self) -> None:
+        for table_id in ("#dt-conns-wan", "#dt-conns-lan"):
+            try:
+                dt = self.query_one(table_id, DataTable)
+            except Exception:
+                continue
+            self._size_table(dt)
+
+    def _size_table(self, dt: DataTable) -> None:
+        # Skip a table that hasn't been laid out yet (e.g. an inactive sub-tab,
+        # width 0); it gets sized when its tab is activated.
+        if not dt.columns or dt.size.width <= 0:
+            return
+        # Each column also consumes 2 * cell_padding of horizontal space.
+        padding_total = 2 * dt.cell_padding * len(dt.columns)
+        available = dt.size.width - padding_total
+        fixed_total = sum(self._FIXED_WIDTHS.values())
+        flex_space = max(available - fixed_total, len(self._FLEX_COLUMNS) * 12)
+        weight_total = sum(self._FLEX_WEIGHTS.values())
+        # Hand out flex space by weight, giving any rounding remainder to the
+        # last flex column so the row exactly fills the width.
+        assigned = 0
+        flex_widths: dict[str, int] = {}
+        for i, name in enumerate(self._FLEX_COLUMNS):
+            if i == len(self._FLEX_COLUMNS) - 1:
+                flex_widths[name] = flex_space - assigned
+            else:
+                w = flex_space * self._FLEX_WEIGHTS[name] // weight_total
+                flex_widths[name] = w
+                assigned += w
+        for col in dt.columns.values():
+            name = col.label.plain
+            col.auto_width = False
+            col.width = self._FIXED_WIDTHS.get(name, flex_widths.get(name, col.width))
+        dt.refresh()
+
+    def update_stats(self, connections: list[Connection], limit: int = 200) -> None:
         wan = [c for c in connections if c.is_wan_facing]
-        other = [c for c in connections if not c.is_wan_facing]
+        lan = [c for c in connections if not c.is_wan_facing]
         self._fill("#dt-conns-wan", wan, limit)
-        self._fill("#dt-conns-other", other, limit)
-        # Show live counts in the headings.
+        self._fill("#dt-conns-lan", lan, limit)
+        # Reflect live counts in the sub-tab labels.
         try:
-            self.query_one("#heading-wan", Label).update(f"WAN / WAN-Tunnel  ({len(wan)})")
-            self.query_one("#heading-other", Label).update(f"LAN / Other  ({len(other)})")
+            tabs = self.query_one("#conns-subtabs", TabbedContent)
+            tabs.get_tab("sub-wan").label = f"WAN ({len(wan)})"
+            tabs.get_tab("sub-lan").label = f"LAN ({len(lan)})"
         except Exception:
             pass
 
@@ -91,11 +141,15 @@ class ConnectionsTable(Widget):
             dt = self.query_one(table_id, DataTable)
         except Exception:
             return
+        # Keep columns stretched to the table's current width (covers a tab
+        # that gained its real size only after first being populated).
+        self._size_table(dt)
         dt.clear()
         for c in connections[:limit]:
+            # Resolve both endpoints (and the NAT reply address) when enabled.
             src = f"{self._host(c.src)}:{c.sport}"
             dst = f"{self._host(c.dst)}:{c.dport}"
-            nat = f"{self._host(c.reply_dst)}" if c.is_nat else "—"
+            nat = self._host(c.reply_dst) if c.is_nat else "—"
             dt.add_row(
                 Text(c.protocol.upper(), style=self._proto_color(c.protocol)),
                 Text(src, style="#50a0ff"),
