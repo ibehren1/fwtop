@@ -121,7 +121,7 @@ sudo fwtop -r -n 0.5
 
 A two-column layout. The left column stacks **Summary** (aggregate
 throughput, tracked connections, drop rate, uptime), **CPU**, and a
-**Conntrack** breakdown (capacity bar, per-protocol bars, top TCP states).
+**Conntrack** breakdown (capacity bar, per-protocol bars, per-state bars).
 The right column shows two side-by-side rolling throughput charts — **WAN**
 (red shades) and **LAN** (green shades) — above the **Interfaces** table.
 

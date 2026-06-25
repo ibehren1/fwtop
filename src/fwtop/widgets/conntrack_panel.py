@@ -14,6 +14,20 @@ _PROTO_COLORS = {
     "sctp": "#a050ff",
 }
 
+# TCP-state bar colors, consistent with the Connections tab's state coloring:
+# healthy ESTABLISHED green, transient/closing states orange.
+_STATE_COLORS = {
+    "ESTABLISHED": "#50ffa0",
+    "TIME_WAIT": "#ffa050",
+    "CLOSE_WAIT": "#ffa050",
+    "FIN_WAIT": "#ffa050",
+    "SYN_SENT": "#50a0ff",
+    "SYN_RECV": "#50a0ff",
+    "LAST_ACK": "#ff9020",
+    "CLOSE": "#ff5050",
+}
+_STATE_DEFAULT_COLOR = "#8080a0"
+
 
 class ConntrackPanel(Widget):
     """Connection-tracking summary: table fill, protocol & state breakdown."""
@@ -63,10 +77,20 @@ class ConntrackPanel(Widget):
             text.append("░" * (pbar - filled), style="#303030")
             text.append(f" {count:>5,}\n", style="#808080")
 
-        # Top TCP states on one line.
+        # TCP-state breakdown bars. Scaled to the busiest state so the mix is
+        # readable even when one state dominates the total.
         if s.by_state:
-            text.append("\n  states  ", style="#808080")
-            parts = [f"{st}={n}" for st, n in list(s.by_state.items())[:4]]
-            text.append("  ".join(parts) + "\n", style="#8080a0")
+            text.append("\n  States\n", style="#808080")
+            states = list(s.by_state.items())[:5]
+            state_max = max(n for _, n in states) or 1
+            sbar = max(self.size.width - 24, 8)
+            for state, count in states:
+                frac = count / state_max
+                filled = int(frac * sbar)
+                color = _STATE_COLORS.get(state, _STATE_DEFAULT_COLOR)
+                text.append(f"  {state:<11} ", style=f"bold {color}")
+                text.append("█" * filled, style=color)
+                text.append("░" * (sbar - filled), style="#303030")
+                text.append(f" {count:>5,}\n", style="#808080")
 
         return text
