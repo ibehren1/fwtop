@@ -42,6 +42,14 @@ def main() -> None:
         help="Path to the config file storing interface zone assignments "
              "(default: $XDG_CONFIG_HOME/fwtop/config.json)",
     )
+    parser.add_argument(
+        "--dns",
+        metavar="SERVER",
+        action="append",
+        help="DNS server to use for reverse lookups (repeatable). Overrides "
+             "the servers auto-discovered from the host; resolution is always "
+             "done in-process via dnspython, never the system resolver",
+    )
     args = parser.parse_args()
 
     # Real data sources read privileged kernel files (conntrack, nft ruleset).
@@ -61,7 +69,13 @@ def main() -> None:
 
     config = Config.load(Path(args.config) if args.config else None)
 
-    app = FwTopApp(interval=args.interval, demo=args.demo, resolve=args.resolve, config=config)
+    app = FwTopApp(
+        interval=args.interval,
+        demo=args.demo,
+        resolve=args.resolve,
+        config=config,
+        nameservers=args.dns,
+    )
     app.run()
 
 

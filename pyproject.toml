@@ -1,6 +1,6 @@
 [project]
 name = "fwtop"
-version = "0.2.3"
+version = "0.2.4"
 description = "Real-time router/firewall traffic visualizer TUI for Linux (interfaces, conntrack, firewall drops)"
 readme = "README.md"
 authors = [
