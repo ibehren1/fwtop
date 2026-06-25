@@ -88,16 +88,20 @@ class DropsHeatmap(Widget):
         return text
 
     def _legend(self, peak: float) -> Text:
-        """Smoke→fire legend, horizontally centered to the widget width.
+        """Smoke→fire legend showing the full ramp, centered to the width.
 
-        Centering is done by prepending spaces (rather than Text justify),
-        since an appended child Text doesn't carry its justify into the parent.
+        Renders one swatch per ramp color (0 → peak) so the whole gradient is
+        visible. Centering is done by prepending spaces (rather than Text
+        justify), since an appended child Text's justify doesn't propagate to
+        the parent.
         """
         legend = Text()
-        legend.append("smoke ", style="#5a5a5a")
-        legend.append("░▒▓█", style="#a55a3a")
-        legend.append(" fire", style="#ff2020")
-        legend.append(f"   0 → {peak:,.0f} pkt/s", style="#808080")
+        legend.append("smoke ", style="#606060")
+        legend.append("0 ", style="#808080")
+        for color in _RAMP:
+            legend.append(_CELL * 2, style=color)
+        legend.append(f" {peak:,.0f} pkt/s", style="#808080")
+        legend.append(" fire", style="#606060")
         pad = max((self.size.width - legend.cell_len) // 2, 0)
         if pad:
             legend = Text(" " * pad) + legend
