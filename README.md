@@ -8,9 +8,13 @@ Built with [Textual](https://github.com/Textualize/textual), [Plotext](https://g
 
 ## Screenshots
 
-The Overview tab — WAN/LAN throughput charts, the smoke→fire drops heatmap, and the zone-grouped Interfaces table (shown with `--demo` data):
+The Overview tab — WAN/LAN throughput charts and the zone-grouped Interfaces table (shown with `--demo` data):
 
 ![fwtop Overview tab](images/screenshot.svg)
+
+The Drops tab — a smoke→fire heatmap, one ticking row per firewall drop/reject rule:
+
+![fwtop Drops tab](images/drops.svg)
 
 The Connections tab — WAN-facing flows on the left, internal LAN flows on the right:
 
@@ -109,6 +113,7 @@ sudo fwtop -r -n 0.5
 | `1` | Overview tab |
 | `2` | Connections tab |
 | `3` | Firewall tab |
+| `4` | Drops tab |
 
 ## Dashboard
 
@@ -118,20 +123,10 @@ A two-column layout. The left column stacks **Summary** (aggregate
 throughput, tracked connections, drop rate, uptime), **CPU**, and a
 **Conntrack** breakdown (capacity bar, per-protocol bars, top TCP states).
 The right column shows two side-by-side rolling throughput charts — **WAN**
-(red shades) and **LAN** (green shades) — then a **Drops Heatmap**, then the
-**Interfaces** table.
+(red shades) and **LAN** (green shades) — above the **Interfaces** table.
 
 The throughput charts each plot up to four lines: the physical link's down/up
 plus its tunnel's down/up.
-
-The **Drops Heatmap** is a ticking grid with one row per firewall drop/reject
-rule and one column per refresh tick, scrolling left as time advances. Each
-cell's color runs **smoke→fire** — faint gray at low drop rates, warming
-through embers to bright red at the peak — scaled to the busiest cell on
-screen, so a spike in dropped traffic (a scan, a brute-force burst) lights up
-at a glance. The newest tick is the right-hand column; a footer shows the
-smoke→fire legend and the current peak rate the color scale maps to. The grid
-expands and contracts with the window.
 
 The **Interfaces** table groups rows into zone sections (WAN → WAN-Tunnel →
 LAN → LAN-Tunnel → other), each under a heading; rows keep a stable order and
@@ -155,6 +150,17 @@ NAT). Each heading shows the live count for that side.
 Every firewall rule counter, with **drops and rejects sorted to the top** and
 color-coded by verdict. Shows per-rule packet/byte rates so a spike in
 dropped traffic (a scan, a brute-force attempt, a misconfig) jumps out.
+
+### Drops tab
+
+A full-screen ticking heatmap with one row per firewall drop/reject rule and
+one column per refresh tick, scrolling left as time advances. Each cell's
+color runs **smoke→fire** — faint gray at low drop rates, warming through
+embers to bright red at the peak — scaled to the busiest cell on screen, so a
+spike in dropped traffic (a scan, a brute-force burst) lights up at a glance.
+The newest tick is the right-hand column; a footer shows the smoke→fire legend
+and the current peak rate the color scale maps to. The grid expands and
+contracts with the window.
 
 ## Interface zones
 

@@ -151,6 +151,7 @@ class FwTopApp(App):
         Binding("1", "show_tab('overview')", "Overview"),
         Binding("2", "show_tab('connections')", "Connections"),
         Binding("3", "show_tab('firewall')", "Firewall"),
+        Binding("4", "show_tab('drops')", "Drops"),
     ]
 
     def __init__(
@@ -184,12 +185,13 @@ class FwTopApp(App):
                         with Horizontal(id="charts-row"):
                             yield ThroughputChart("WAN throughput (Mb/s)", id="wan-chart")
                             yield ThroughputChart("LAN throughput (Mb/s)", id="lan-chart")
-                        yield DropsHeatmap(id="drops-heatmap")
                         yield InterfaceTable(id="interfaces")
             with TabPane("Connections", id="connections"):
                 yield ConnectionsTable(id="conns-table")
             with TabPane("Firewall", id="firewall"):
                 yield FirewallPanel(id="fw-table")
+            with TabPane("Drops", id="drops"):
+                yield DropsHeatmap(id="drops-heatmap")
         yield Label("", id="status-label", markup=False)
         yield Footer()
 
