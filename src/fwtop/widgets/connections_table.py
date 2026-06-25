@@ -2,47 +2,29 @@ from __future__ import annotations
 
 from rich.text import Text
 from textual.app import ComposeResult
-from textual.containers import Horizontal, Vertical
 from textual.widget import Widget
-from textual.widgets import DataTable, Label
+from textual.widgets import DataTable, TabbedContent, TabPane
 
 from fwtop.models import Connection
 from fwtop.stats import format_bytes
 
 
 class ConnectionsTable(Widget):
-    """Top conntrack flows in two columns.
+    """Top conntrack flows, split into WAN and LAN sub-tabs.
 
     Conntrack entries carry no interface label, so flows are split by
     :attr:`Connection.is_wan_facing`: NAT'd or public-touching flows (WAN and
-    WAN-Tunnel traffic) on the left, purely internal flows on the right.
+    WAN-Tunnel traffic) under the WAN sub-tab, purely internal flows under LAN.
+    Each sub-tab is a full-width table; both source and destination addresses
+    are reverse-DNS resolved when resolution is enabled.
     """
 
     DEFAULT_CSS = """
     ConnectionsTable {
         height: 100%;
     }
-    ConnectionsTable #conns-split {
+    ConnectionsTable TabbedContent {
         height: 100%;
-        layout: horizontal;
-    }
-    ConnectionsTable .conns-col {
-        width: 1fr;
-        height: 100%;
-    }
-    ConnectionsTable .conns-col-left {
-        margin-right: 1;
-    }
-    ConnectionsTable .conns-heading {
-        height: 1;
-        text-style: bold;
-        padding: 0 1;
-    }
-    ConnectionsTable #heading-wan {
-        color: #ff5050;
-    }
-    ConnectionsTable #heading-other {
-        color: #50ffa0;
     }
     ConnectionsTable DataTable {
         height: 1fr;
@@ -56,17 +38,22 @@ class ConnectionsTable(Widget):
     def set_resolver(self, resolver) -> None:
         self._resolver = resolver
 
+    def show_sub(self, sub: str) -> None:
+        """Activate a sub-tab ('sub-wan' or 'sub-lan')."""
+        try:
+            self.query_one("#conns-subtabs", TabbedContent).active = sub
+        except Exception:
+            pass
+
     def compose(self) -> ComposeResult:
-        with Horizontal(id="conns-split"):
-            with Vertical(classes="conns-col conns-col-left"):
-                yield Label("WAN / WAN-Tunnel", classes="conns-heading", id="heading-wan")
+        with TabbedContent(initial="sub-wan", id="conns-subtabs"):
+            with TabPane("WAN", id="sub-wan"):
                 yield DataTable(id="dt-conns-wan")
-            with Vertical(classes="conns-col"):
-                yield Label("LAN / Other", classes="conns-heading", id="heading-other")
-                yield DataTable(id="dt-conns-other")
+            with TabPane("LAN", id="sub-lan"):
+                yield DataTable(id="dt-conns-lan")
 
     def on_mount(self) -> None:
-        for table_id in ("#dt-conns-wan", "#dt-conns-other"):
+        for table_id in ("#dt-conns-wan", "#dt-conns-lan"):
             dt = self.query_one(table_id, DataTable)
             dt.cursor_type = "row"
             dt.zebra_stripes = True
@@ -74,15 +61,16 @@ class ConnectionsTable(Widget):
                 "Proto", "Source", "Destination", "NAT →", "State", "Packets", "Bytes"
             )
 
-    def update_stats(self, connections: list[Connection], limit: int = 50) -> None:
+    def update_stats(self, connections: list[Connection], limit: int = 200) -> None:
         wan = [c for c in connections if c.is_wan_facing]
-        other = [c for c in connections if not c.is_wan_facing]
+        lan = [c for c in connections if not c.is_wan_facing]
         self._fill("#dt-conns-wan", wan, limit)
-        self._fill("#dt-conns-other", other, limit)
-        # Show live counts in the headings.
+        self._fill("#dt-conns-lan", lan, limit)
+        # Reflect live counts in the sub-tab labels.
         try:
-            self.query_one("#heading-wan", Label).update(f"WAN / WAN-Tunnel  ({len(wan)})")
-            self.query_one("#heading-other", Label).update(f"LAN / Other  ({len(other)})")
+            tabs = self.query_one("#conns-subtabs", TabbedContent)
+            tabs.get_tab("sub-wan").label = f"WAN ({len(wan)})"
+            tabs.get_tab("sub-lan").label = f"LAN ({len(lan)})"
         except Exception:
             pass
 
@@ -93,9 +81,10 @@ class ConnectionsTable(Widget):
             return
         dt.clear()
         for c in connections[:limit]:
+            # Resolve both endpoints (and the NAT reply address) when enabled.
             src = f"{self._host(c.src)}:{c.sport}"
             dst = f"{self._host(c.dst)}:{c.dport}"
-            nat = f"{self._host(c.reply_dst)}" if c.is_nat else "—"
+            nat = self._host(c.reply_dst) if c.is_nat else "—"
             dt.add_row(
                 Text(c.protocol.upper(), style=self._proto_color(c.protocol)),
                 Text(src, style="#50a0ff"),

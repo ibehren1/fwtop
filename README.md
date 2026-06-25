@@ -16,7 +16,7 @@ The Drops tab — a smoke→fire heatmap, one ticking row per firewall drop/reje
 
 ![fwtop Drops tab](images/drops.svg)
 
-The Connections tab — WAN-facing flows on the left, internal LAN flows on the right:
+The Connections tab — WAN and LAN sub-tabs, with both endpoints reverse-DNS resolved:
 
 ![fwtop Connections tab](images/connections.svg)
 
@@ -28,7 +28,7 @@ The Connections tab — WAN-facing flows on the left, internal LAN flows on the 
 - **Drops heatmap** — a ticking grid, one row per drop/reject rule, colored smoke→fire (gray low, red high) so spikes light up at a glance
 - **Zone categorization** — label each interface WAN / WAN-Tunnel / LAN / LAN-Tunnel / other; saved to a config file and editable at runtime
 - Side-by-side rolling 60-second throughput charts — **WAN in red shades, LAN in green shades**, each overlaying its physical link and its tunnel (WireGuard/GRE/IPsec) traffic, braille-dot plotted
-- **Two-column connections view** — WAN-facing flows (NAT'd/public) on the left, internal LAN flows on the right
+- **Connections view** — WAN and LAN sub-tabs splitting NAT'd/public flows from internal ones; both endpoints reverse-DNS resolved
 - CPU usage panel (user / system / total / fwtop process)
 - Optional reverse-DNS resolution of IPs, toggleable at runtime
 - `--demo` mode with synthetic data — runs anywhere, no kernel access or root needed
@@ -114,6 +114,8 @@ sudo fwtop -r -n 0.5
 | `2` | Connections tab |
 | `3` | Firewall tab |
 | `4` | Drops tab |
+| `w` | Connections tab, WAN sub-tab |
+| `l` | Connections tab, LAN sub-tab |
 
 ## Dashboard
 
@@ -139,11 +141,16 @@ The heaviest conntrack flows, one row per connection: protocol, original
 source → destination, the NAT reply address when translation is in effect,
 TCP state, and per-flow packet/byte volume.
 
-Flows are split into two side-by-side columns. Conntrack entries carry no
-interface label, so the split is inferred: **WAN / WAN-Tunnel** traffic on the
-left (flows that were NAT'd out or touch a public address) and **LAN / Other**
-internal flows on the right (purely private endpoint to private endpoint, no
-NAT). Each heading shows the live count for that side.
+Flows are split into two sub-tabs — **WAN** and **LAN** (keys `w` / `l`).
+Conntrack entries carry no interface label, so the split is inferred: the
+**WAN** sub-tab holds flows that were NAT'd out or touch a public address (WAN
+and WAN-Tunnel traffic), and the **LAN** sub-tab holds purely internal flows
+(private endpoint to private endpoint, no NAT). Each sub-tab label shows its
+live flow count.
+
+With reverse-DNS resolution enabled (the `-r` flag or the `r` key), both the
+source and destination addresses — and the NAT reply address — are resolved to
+hostnames when a PTR record exists, falling back to the raw IP otherwise.
 
 ### Firewall tab
 
