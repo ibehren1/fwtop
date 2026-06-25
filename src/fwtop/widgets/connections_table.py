@@ -52,6 +52,20 @@ class ConnectionsTable(Widget):
             with TabPane("LAN", id="sub-lan"):
                 yield DataTable(id="dt-conns-lan")
 
+    # Columns with a fixed width; the remaining horizontal space is divided
+    # among the variable-length address columns (Source/Destination/NAT) so
+    # the table always fills the full terminal width.
+    _FIXED_WIDTHS = {
+        "Proto": 6,
+        "State": 12,
+        "Packets": 11,
+        "Bytes": 11,
+    }
+    _FLEX_COLUMNS = ("Source", "Destination", "NAT →")
+    # Roughly how to divide leftover space among the flex columns: source and
+    # destination get the lion's share, the NAT reply a bit less.
+    _FLEX_WEIGHTS = {"Source": 4, "Destination": 4, "NAT →": 3}
+
     def on_mount(self) -> None:
         for table_id in ("#dt-conns-wan", "#dt-conns-lan"):
             dt = self.query_one(table_id, DataTable)
@@ -60,6 +74,43 @@ class ConnectionsTable(Widget):
             dt.add_columns(
                 "Proto", "Source", "Destination", "NAT →", "State", "Packets", "Bytes"
             )
+            for col in dt.columns.values():
+                col.auto_width = False
+        self._resize_columns()
+
+    def on_resize(self) -> None:
+        self._resize_columns()
+
+    def _resize_columns(self) -> None:
+        for table_id in ("#dt-conns-wan", "#dt-conns-lan"):
+            try:
+                dt = self.query_one(table_id, DataTable)
+            except Exception:
+                continue
+            if not dt.columns:
+                continue
+            # Each column also consumes 2 * cell_padding of horizontal space.
+            padding_total = 2 * dt.cell_padding * len(dt.columns)
+            available = dt.size.width - padding_total
+            fixed_total = sum(self._FIXED_WIDTHS.values())
+            flex_space = max(available - fixed_total, len(self._FLEX_COLUMNS) * 12)
+            weight_total = sum(self._FLEX_WEIGHTS.values())
+            # Hand out flex space by weight, giving any rounding remainder to
+            # the last flex column so the row exactly fills the width.
+            assigned = 0
+            flex_widths: dict[str, int] = {}
+            for i, name in enumerate(self._FLEX_COLUMNS):
+                if i == len(self._FLEX_COLUMNS) - 1:
+                    flex_widths[name] = flex_space - assigned
+                else:
+                    w = flex_space * self._FLEX_WEIGHTS[name] // weight_total
+                    flex_widths[name] = w
+                    assigned += w
+            for col in dt.columns.values():
+                name = col.label.plain
+                col.auto_width = False
+                col.width = self._FIXED_WIDTHS.get(name, flex_widths.get(name, col.width))
+            dt.refresh()
 
     def update_stats(self, connections: list[Connection], limit: int = 200) -> None:
         wan = [c for c in connections if c.is_wan_facing]
