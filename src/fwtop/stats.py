@@ -30,6 +30,22 @@ def format_bits_rate(bytes_per_sec: float) -> str:
     return f"{bits:.1f} Tbps"
 
 
+# Width of the numeric field in format_mbps: enough for "100,000.00"
+# (100 Gbps) so the column never has to grow.
+MBPS_FIELD_WIDTH = 10
+
+
+def format_mbps(bytes_per_sec: float) -> str:
+    """Always-Mbps rate in a fixed-width field so table columns stay static.
+
+    The numeric part is right-justified to :data:`MBPS_FIELD_WIDTH`, which
+    accommodates values up to ``100,000.00`` Mbps (100 Gbps); the trailing
+    unit keeps the full string a constant width regardless of magnitude.
+    """
+    mbps = bytes_per_sec * 8 / 1_000_000
+    return f"{mbps:>{MBPS_FIELD_WIDTH},.2f} Mbps"
+
+
 def format_count(n: float) -> str:
     """Compact count formatting (1.2K, 3.4M)."""
     n = float(n)

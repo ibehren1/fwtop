@@ -7,10 +7,23 @@ from textual.widgets import DataTable
 
 from fwtop.config import ZONE_LABELS
 from fwtop.models import InterfaceStat
-from fwtop.stats import format_bits_rate, format_bytes
+from fwtop.stats import format_bytes, format_mbps
 
 # Zones are always shown in this order, each as its own headed section.
 _ZONE_ORDER = ("wan", "wan_tunnel", "lan", "lan_tunnel", "other")
+
+# Fixed column widths so cells never resize as values grow. The rate columns
+# are sized for "100,000.00 Mbps" (100 Gbps); totals for values up to "999.9
+# PB"; the rest for large comma-grouped counts.
+_COL_WIDTHS = {
+    "Interface": 16,
+    "RX rate": 16,
+    "TX rate": 16,
+    "RX total": 12,
+    "TX total": 12,
+    "Errors": 11,
+    "Drops": 11,
+}
 
 
 class InterfaceTable(Widget):
@@ -62,9 +75,12 @@ class InterfaceTable(Widget):
         # Zebra striping is off so the zone heading rows read cleanly as
         # separators rather than blending into alternating row colors.
         dt.zebra_stripes = False
-        self._col_keys = dt.add_columns(
-            "Interface", "RX rate", "TX rate", "RX total", "TX total", "Errors", "Drops"
-        )
+        self._col_keys = dt.add_columns(*_COL_WIDTHS.keys())
+        # Pin each column to a fixed width so cells never resize as values
+        # grow (e.g. a link ramping from idle to 100 Gbps).
+        for col in dt.columns.values():
+            col.auto_width = False
+            col.width = _COL_WIDTHS.get(col.label.plain, col.width)
 
     def update_stats(self, interfaces: list[InterfaceStat]) -> None:
         try:
@@ -111,7 +127,8 @@ class InterfaceTable(Widget):
         # Skip column 0 (the interface name) — it never changes for a row.
         for col_key, value in zip(self._col_keys[1:], cells[1:]):
             try:
-                dt.update_cell(row_key, col_key, value, update_width=True)
+                # update_width=False keeps the pinned column widths static.
+                dt.update_cell(row_key, col_key, value, update_width=False)
             except Exception:
                 # Row vanished between ticks (race with a rebuild) — ignore;
                 # the next tick's signature check will reconcile the layout.
@@ -122,8 +139,8 @@ class InterfaceTable(Widget):
         drops = s.rx_dropped + s.tx_dropped
         return (
             Text(f"  {s.name}", style="bold #50a0ff"),
-            Text(format_bits_rate(s.rx_bps), style="#50a0ff"),
-            Text(format_bits_rate(s.tx_bps), style="#50ffa0"),
+            Text(format_mbps(s.rx_bps), style="#50a0ff"),
+            Text(format_mbps(s.tx_bps), style="#50ffa0"),
             format_bytes(s.rx_bytes),
             format_bytes(s.tx_bytes),
             Text(f"{errs:,}", style="#ffa050" if errs else "#606080"),
