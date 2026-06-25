@@ -20,6 +20,28 @@ _LAN_HOSTS = ("192.168.1.10", "192.168.1.42", "192.168.1.77", "10.0.10.5")
 _WAN_HOSTS = ("203.0.113.9", "198.51.100.23", "8.8.8.8", "1.1.1.1", "140.82.121.4")
 _WAN_IP = "203.0.113.2"  # the router's public address (NAT egress)
 
+# PTR answers a router's local DNS would return for the synthetic hosts. The
+# demo's addresses are fictional (TEST-NET / RFC1918), so a real reverse-DNS
+# lookup can't resolve them; demo_ptr_lookup() stands in as that DNS backend
+# so the resolver still exercises its real cache/lookup path.
+_DEMO_PTR = {
+    "192.168.1.10": "desktop.lan",
+    "192.168.1.42": "laptop.lan",
+    "192.168.1.77": "nas.lan",
+    "10.0.10.5": "iot-hub.lan",
+    "203.0.113.2": "router.wan",
+    "203.0.113.9": "vpn-peer.example.net",
+    "198.51.100.23": "mail.example.org",
+    "8.8.8.8": "dns.google",
+    "1.1.1.1": "one.one.one.one",
+    "140.82.121.4": "lb-140-82-121-4-fra.github.com",
+}
+
+
+def demo_ptr_lookup(ip: str) -> str:
+    """Stand-in DNS backend for the demo: return the simulated PTR or the IP."""
+    return _DEMO_PTR.get(ip, ip)
+
 
 class DemoSource:
     """Synthetic data source producing plausible, time-varying router metrics.
