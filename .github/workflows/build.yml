@@ -1,0 +1,88 @@
+name: Build binaries
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            arch: x86_64
+            runner: ubuntu-22.04
+            artifact: fwtop-linux-x86_64
+          - os: ubuntu-22.04-arm
+            arch: arm64
+            runner: ubuntu-22.04-arm
+            artifact: fwtop-linux-arm64
+          - os: macos-14
+            arch: arm64
+            runner: macos-14
+            artifact: fwtop-macos-arm64
+
+    runs-on: ${{ matrix.runner }}
+    name: Build ${{ matrix.artifact }}
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v8.1.0
+        with:
+          version: "latest"
+
+      - name: Set up Python
+        run: uv python install 3.12
+
+      - name: Install dependencies
+        run: uv sync --dev
+
+      - name: Build binary with PyInstaller
+        run: uv run pyinstaller fwtop.spec --clean --noconfirm
+
+      - name: Rename binary
+        run: mv dist/fwtop dist/${{ matrix.artifact }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ matrix.artifact }}
+          path: dist/${{ matrix.artifact }}
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v8
+        with:
+          path: artifacts
+
+      - name: Create checksums
+        run: |
+          cd artifacts
+          for dir in */; do
+            for file in "$dir"*; do
+              sha256sum "$file" >> SHA256SUMS.txt
+            done
+          done
+          cat SHA256SUMS.txt
+
+      - name: Create release
+        uses: softprops/action-gh-release@v3
+        with:
+          generate_release_notes: true
+          files: |
+            artifacts/fwtop-linux-x86_64/fwtop-linux-x86_64
+            artifacts/fwtop-linux-arm64/fwtop-linux-arm64
+            artifacts/fwtop-macos-arm64/fwtop-macos-arm64
+            artifacts/SHA256SUMS.txt

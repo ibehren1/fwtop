@@ -1,0 +1,28 @@
+[project]
+name = "fwtop"
+version = "0.1.0"
+description = "Real-time router/firewall traffic visualizer TUI for Linux (interfaces, conntrack, firewall drops)"
+readme = "README.md"
+authors = [
+    { name = "Isaac B. Behrens", email = "isaac@behrenshome.com" }
+]
+license = "MIT"
+license-files = ["LICENSE"]
+requires-python = ">=3.10"
+dependencies = [
+    "textual>=2.0.0,<3",
+    "textual-plotext>=1.0.0,<2",
+    "psutil>=5.9,<7",
+]
+
+[project.scripts]
+fwtop = "fwtop.__main__:main"
+
+[dependency-groups]
+dev = [
+    "pyinstaller>=6.0,<7",
+]
+
+[build-system]
+requires = ["uv_build>=0.11.6,<0.12.0"]
+build-backend = "uv_build"
