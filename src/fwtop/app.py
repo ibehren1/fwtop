@@ -12,7 +12,6 @@ from fwtop import __version__
 from fwtop.collector import Collector
 from fwtop.config import ZONE_CYCLE, Config
 from fwtop.resolve import Resolver
-from fwtop.sources.demo import demo_ptr_lookup
 from fwtop.widgets import (
     ConnectionsTable,
     ConntrackPanel,
@@ -163,6 +162,7 @@ class FwTopApp(App):
         demo: bool = False,
         resolve: bool = False,
         config: Config | None = None,
+        nameservers: list[str] | None = None,
     ) -> None:
         super().__init__()
         self.refresh_interval = interval
@@ -170,6 +170,7 @@ class FwTopApp(App):
         self.collector = Collector(demo=demo, config=self.config)
         self.resolver: Resolver | None = None
         self.resolve_enabled = resolve
+        self.nameservers = nameservers
         self.paused = False
         self._start_time = 0.0
         self._timer = None
@@ -199,12 +200,12 @@ class FwTopApp(App):
         yield Footer()
 
     def _make_resolver(self) -> Resolver:
-        # Production resolves every address (local or public) through the
-        # system DNS resolver. In demo mode the synthetic addresses don't
-        # exist, so swap in a fake DNS backend that returns their PTR records;
-        # the cache/queue path is identical either way.
-        lookup = demo_ptr_lookup if self.collector.demo else None
-        return Resolver(lookup=lookup)
+        # Resolution always goes through real DNS, in-process via dnspython,
+        # against the host's discovered upstream servers (or --dns overrides).
+        # Demo mode is no different: its traffic uses real LAN subnets, so
+        # whichever addresses have PTR records on the host's DNS resolve for
+        # real, exactly as in production.
+        return Resolver(nameservers=self.nameservers)
 
     def on_mount(self) -> None:
         if self.resolve_enabled:

@@ -76,7 +76,7 @@ uv run fwtop --demo        # synthetic data, no root
 ## Usage
 
 ```
-usage: fwtop [-h] [-v] [-n INTERVAL] [-r] [--demo] [-c PATH]
+usage: fwtop [-h] [-v] [-n INTERVAL] [-r] [--demo] [-c PATH] [--dns SERVER]
 
 options:
   -h, --help            show this help message and exit
@@ -86,6 +86,8 @@ options:
   --demo                Run with synthetic data (no kernel access / root needed)
   -c, --config PATH     Config file for interface zone assignments
                         (default: $XDG_CONFIG_HOME/fwtop/config.json)
+  --dns SERVER          DNS server for reverse lookups (repeatable); overrides
+                        the servers auto-discovered from the host
 ```
 
 ### Examples
@@ -152,12 +154,19 @@ With reverse-DNS resolution enabled (the `-r` flag or the `r` key), both the
 source and destination addresses — and the NAT reply address — are resolved to
 hostnames when a PTR record exists, falling back to the raw IP otherwise.
 
-Lookups query the nameservers in `/etc/resolv.conf` directly (the way `dig -x`
-does), not the libc resolver. This matters on hosts running
-`systemd-resolved`: its `127.0.0.53` stub does not forward reverse lookups for
-private (RFC1918) ranges to the upstream resolver by default, so going through
-libc would leave LAN addresses unresolved. Results are cached in-process, so
-each address is looked up only once.
+All resolution is done in-process with [dnspython](https://www.dnspython.org/),
+querying the host's upstream nameservers directly — the system resolver
+(`getaddrinfo`/NSS/`/etc/hosts`) is never consulted. The upstream servers are
+auto-discovered, preferring `/run/systemd/resolve/resolv.conf` (the real
+upstreams) over `/etc/resolv.conf` (which on `systemd-resolved` hosts is just
+the `127.0.0.53` stub); loopback/stub addresses are dropped. This is why
+private (RFC1918) addresses resolve here when the host's own reverse lookups
+would not. Override the servers with `--dns SERVER` (repeatable).
+
+Results are cached in-process. A successful name is kept for the session; an
+authoritative "no PTR" is cached for a few minutes; a transient failure
+(timeout, unreachable server) is retried shortly after, so a momentary glitch
+never pins a resolvable address to its raw IP.
 
 ### Firewall tab
 

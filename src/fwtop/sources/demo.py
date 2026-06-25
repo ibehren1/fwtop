@@ -13,34 +13,25 @@ from fwtop.models import (
 )
 
 # A small fixed cast of interfaces and hosts so the demo looks like a real
-# edge router: a WAN uplink, a LAN bridge and VLAN, a WireGuard WAN tunnel,
-# and a GRE tunnel bridged into the LAN.
-_IFACES = ("eth0", "br-lan", "vlan10", "wg0", "gre-lan")
-_LAN_HOSTS = ("192.168.1.10", "192.168.1.42", "192.168.1.77", "10.0.10.5")
+# edge router: a WAN uplink, a LAN bridge and two VLANs, a WireGuard WAN
+# tunnel, and a GRE tunnel bridged into the LAN. The LAN is split across three
+# subnets — a main LAN (10.1.1.0/24), a servers VLAN (10.1.3.0/24), and an IoT
+# VLAN (10.1.24.0/24) — to exercise multi-subnet resolution.
+_IFACES = ("eth0", "br-lan", "vlan3", "vlan24", "wg0", "gre-lan")
+
+# LAN hosts grouped by subnet. These are real RFC1918 addresses, not
+# placeholders: reverse lookups go through the host's actual DNS, so whichever
+# of these have PTR records on your resolver will display their hostnames just
+# like in production.
+_LAN_BY_SUBNET = {
+    "10.1.1.0/24": ("10.1.1.10", "10.1.1.42", "10.1.1.77", "10.1.1.150"),
+    "10.1.3.0/24": ("10.1.3.5", "10.1.3.10", "10.1.3.20", "10.1.3.30"),
+    "10.1.24.0/24": ("10.1.24.11", "10.1.24.12", "10.1.24.13", "10.1.24.50"),
+}
+_LAN_HOSTS = tuple(ip for ips in _LAN_BY_SUBNET.values() for ip in ips)
+
 _WAN_HOSTS = ("203.0.113.9", "198.51.100.23", "8.8.8.8", "1.1.1.1", "140.82.121.4")
 _WAN_IP = "203.0.113.2"  # the router's public address (NAT egress)
-
-# PTR answers a router's local DNS would return for the synthetic hosts. The
-# demo's addresses are fictional (TEST-NET / RFC1918), so a real reverse-DNS
-# lookup can't resolve them; demo_ptr_lookup() stands in as that DNS backend
-# so the resolver still exercises its real cache/lookup path.
-_DEMO_PTR = {
-    "192.168.1.10": "desktop.lan",
-    "192.168.1.42": "laptop.lan",
-    "192.168.1.77": "nas.lan",
-    "10.0.10.5": "iot-hub.lan",
-    "203.0.113.2": "router.wan",
-    "203.0.113.9": "vpn-peer.example.net",
-    "198.51.100.23": "mail.example.org",
-    "8.8.8.8": "dns.google",
-    "1.1.1.1": "one.one.one.one",
-    "140.82.121.4": "lb-140-82-121-4-fra.github.com",
-}
-
-
-def demo_ptr_lookup(ip: str) -> str:
-    """Stand-in DNS backend for the demo: return the simulated PTR or the IP."""
-    return _DEMO_PTR.get(ip, ip)
 
 
 class DemoSource:
