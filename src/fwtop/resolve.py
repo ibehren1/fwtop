@@ -5,15 +5,35 @@ import socket
 import threading
 from typing import Callable, Optional
 
+try:
+    import dns.resolver
+    import dns.reversename
+    _HAVE_DNSPYTHON = True
+except ImportError:  # pragma: no cover - dnspython is a declared dependency
+    _HAVE_DNSPYTHON = False
+
 
 def _ptr_lookup(ip: str) -> str:
-    """Resolve ``ip`` to a hostname via the system resolver (reverse DNS).
+    """Resolve ``ip`` to a hostname via reverse DNS (PTR), returning the IP
+    unchanged when there is no record or the lookup fails.
 
-    Returns the IP unchanged when there is no PTR record or the lookup fails.
-    This goes through the OS resolver, so on a router whose local DNS serves
-    PTR records for its DHCP leases, private addresses resolve here too — no
-    hosts file or static map required.
+    We query the nameservers from ``/etc/resolv.conf`` directly with dnspython
+    (the way ``dig -x`` does) rather than ``socket.gethostbyaddr``. The libc
+    path goes through NSS and, on systemd-resolved hosts, the ``127.0.0.53``
+    stub does not forward reverse lookups for private (RFC1918) ranges to the
+    upstream resolver by default — so LAN addresses that ``dig -x`` resolves
+    would otherwise come back empty here. Querying the configured nameservers
+    directly resolves local and public addresses alike.
     """
+    if _HAVE_DNSPYTHON:
+        try:
+            rev = dns.reversename.from_address(ip)
+            answer = dns.resolver.resolve(rev, "PTR")
+            if answer:
+                # PTR targets are absolute names with a trailing dot; strip it.
+                return str(answer[0]).rstrip(".")
+        except Exception:
+            pass  # fall through to the libc resolver / IP fallback
     try:
         return socket.gethostbyaddr(ip)[0]
     except Exception:

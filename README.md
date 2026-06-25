@@ -152,6 +152,13 @@ With reverse-DNS resolution enabled (the `-r` flag or the `r` key), both the
 source and destination addresses — and the NAT reply address — are resolved to
 hostnames when a PTR record exists, falling back to the raw IP otherwise.
 
+Lookups query the nameservers in `/etc/resolv.conf` directly (the way `dig -x`
+does), not the libc resolver. This matters on hosts running
+`systemd-resolved`: its `127.0.0.53` stub does not forward reverse lookups for
+private (RFC1918) ranges to the upstream resolver by default, so going through
+libc would leave LAN addresses unresolved. Results are cached in-process, so
+each address is looked up only once.
+
 ### Firewall tab
 
 Every firewall rule counter, with **drops and rejects sorted to the top** and
