@@ -12,7 +12,7 @@ from fwtop import __version__
 from fwtop.collector import Collector
 from fwtop.config import ZONE_CYCLE, Config
 from fwtop.resolve import Resolver
-from fwtop.sources.demo import DEMO_STATIC_NAMES
+from fwtop.sources.demo import demo_ptr_lookup
 from fwtop.widgets import (
     ConnectionsTable,
     ConntrackPanel,
@@ -199,10 +199,12 @@ class FwTopApp(App):
         yield Footer()
 
     def _make_resolver(self) -> Resolver:
-        # In demo mode seed the resolver with the synthetic hosts' names, since
-        # the private LAN addresses have no real PTR records to look up.
-        static = DEMO_STATIC_NAMES if self.collector.demo else None
-        return Resolver(static_names=static)
+        # Production resolves every address (local or public) through the
+        # system DNS resolver. In demo mode the synthetic addresses don't
+        # exist, so swap in a fake DNS backend that returns their PTR records;
+        # the cache/queue path is identical either way.
+        lookup = demo_ptr_lookup if self.collector.demo else None
+        return Resolver(lookup=lookup)
 
     def on_mount(self) -> None:
         if self.resolve_enabled:
