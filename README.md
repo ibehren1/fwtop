@@ -4,6 +4,8 @@ A real-time **router / firewall** traffic visualizer for the terminal, inspired 
 
 Where a host monitor shows your machine's own traffic, `fwtop` is built for the box that sits *between* networks — an edge router or firewall. It reads kernel state directly (near-zero overhead, no packet capture) to show **per-interface throughput** (split into WAN/LAN zones), the live **connection-tracking table** (including NAT), and **firewall rule counters** with a smoke→fire **drops heatmap** that surfaces spikes at a glance.
 
+The one exception is the opt-in **Capture** tab, an interactive tcpdump: enter a port/protocol filter and watch just that traffic's WAN/LAN throughput and per-interface breakdown, with a live packet stream. Capture only runs while that tab is open, so the rest of the app keeps its zero-capture footprint.
+
 Built with [Textual](https://github.com/Textualize/textual), [Plotext](https://github.com/piccolomo/plotext), and [psutil](https://github.com/giampaolo/psutil).
 
 ## Screenshots
@@ -25,6 +27,8 @@ The Connections tab — WAN and LAN sub-tabs, with both endpoints reverse-DNS re
 - **Per-interface flows** — RX/TX rates, cumulative totals, and error/drop counters for every interface, so forwarded (through) traffic is visible per link
 - **Conntrack view** — live netfilter connection table: protocol & TCP-state breakdown, NAT translations, and table-capacity gauge
 - **Firewall drops** — nftables (or iptables) rule counters with per-rule packet/byte rates; drops and rejects sorted to the top
+- **Chain drill-down** — pick any `table/chain` and inspect every rule's counter in ruleset order, like `nft list chain` / `iptables -L <chain>`
+- **Interactive capture** — a tcpdump-style tab: filter by port(s) and protocol, then watch that traffic's WAN/LAN throughput charts, per-interface breakdown, and a live packet stream (opt-in; runs only while the tab is open)
 - **Drops heatmap** — a ticking grid, one row per drop/reject rule, colored smoke→fire (gray low, red high) so spikes light up at a glance
 - **Zone categorization** — label each interface WAN / WAN-Tunnel / LAN / LAN-Tunnel / other; saved to a config file and editable at runtime
 - Side-by-side rolling 60-second throughput charts — **WAN in red shades, LAN in green shades**, each overlaying its physical link and its tunnel (WireGuard/GRE/IPsec) traffic, braille-dot plotted
@@ -45,6 +49,7 @@ facility is missing, its panel shows *why* instead of crashing.
 | Interfaces | `/proc/net/dev` | Always present on Linux |
 | Conntrack  | `/proc/net/nf_conntrack` | Requires the `nf_conntrack` module (loaded on any NAT/stateful box). Per-flow byte/packet counts need `nf_conntrack_acct` |
 | Firewall   | `nft -j list ruleset`, fallback `iptables -L -v -n -x` | Per-rule counters require a `counter` statement on the rule (nftables) |
+| Capture    | `tcpdump` (one process per interface) | Opt-in; runs only while the Capture tab is open. Needs the `tcpdump` binary. The only source that captures packets |
 
 ## Installation
 
@@ -115,9 +120,13 @@ sudo fwtop -r -n 0.5
 | `1` | Overview tab |
 | `2` | Connections tab |
 | `3` | Firewall tab |
-| `4` | Drops tab |
+| `4` | Chains tab |
+| `5` | Capture tab |
+| `6` | Drops tab |
 | `w` | Connections tab, WAN sub-tab |
 | `l` | Connections tab, LAN sub-tab |
+| `f` | Set capture filter (opens the Capture tab and prompts for ports/protocol) |
+| `s` | Stop the running capture |
 
 ## Dashboard
 
@@ -173,6 +182,36 @@ never pins a resolvable address to its raw IP.
 Every firewall rule counter, with **drops and rejects sorted to the top** and
 color-coded by verdict. Shows per-rule packet/byte rates so a spike in
 dropped traffic (a scan, a brute-force attempt, a misconfig) jumps out.
+
+### Chains tab
+
+A chain-by-chain drill-down. A picker on the left lists every `table/chain`
+seen in the ruleset (with its rule count, and highlighted red when the chain is
+actively dropping); selecting one shows **that chain's rules in ruleset order**
+on the right — rule position, verdict, live packet/byte rates, and cumulative
+totals. Where the Firewall tab flattens everything drops-first, this reads like
+`nft list chain` / `iptables -L <chain>` for inspecting one chain end to end.
+
+### Capture tab
+
+An interactive tcpdump. Press **`f`** to enter a filter — a list of ports
+(e.g. `80, 443, 53`; blank for all) and a protocol (`tcp` / `udp` / `icmp` /
+`any`) — and fwtop starts capturing just that traffic. Laid out like the
+Overview tab, three stacked panels update together: two rolling charts split
+the matched flow's throughput into **WAN** (red) and **LAN** (green); a table
+breaks the same traffic down **per interface** (packet/byte rates and totals);
+and a live **packet list** scrolls the matching packets in tcpdump's own
+format (`HH:MM:SS.ffffff iface IP src.port > dst.port: …`). **`s`** stops the
+capture.
+
+This is the only part of fwtop that captures packets, so it is strictly opt-in:
+it shells out to the system `tcpdump` (one process per interface) and runs
+**only while the Capture tab is on screen** — leaving the tab stops it, and no
+`tcpdump` lingers. It therefore needs the `tcpdump` binary installed and root
+(as the rest of fwtop already requires). Throughput here is derived from
+captured frame lengths, so it approximates rather than exactly matches the
+Overview tab's kernel interface counters. With `--demo` the tab is fully
+exercisable with synthetic packets, no capture privileges needed.
 
 ### Drops tab
 
@@ -249,6 +288,7 @@ Release with the artifacts attached.
 - Python >= 3.10
 - Linux (for live data); any platform for `--demo`
 - Root privileges to read conntrack and the firewall ruleset
+- The `tcpdump` binary, only if you use the Capture tab (optional)
 - A terminal emulator with 256-color support
 
 ## Platform notes
