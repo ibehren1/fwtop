@@ -11,13 +11,17 @@ from textual.widgets import Footer, Header, Label, ListItem, ListView, TabbedCon
 from fwtop import __version__
 from fwtop.collector import Collector
 from fwtop.config import ZONE_CYCLE, Config
+from fwtop.models import CaptureFilter
 from fwtop.resolve import Resolver
+from fwtop.sources import CaptureSource
 from fwtop.widgets import (
+    CapturePanel,
     ChainPanel,
     ConnectionsTable,
     ConntrackPanel,
     CpuPanel,
     DropsHeatmap,
+    FilterModal,
     FirewallPanel,
     InterfaceTable,
     SummaryPanel,
@@ -153,9 +157,12 @@ class FwTopApp(App):
         Binding("2", "show_tab('connections')", "Connections"),
         Binding("3", "show_tab('firewall')", "Firewall"),
         Binding("4", "show_tab('chains')", "Chains"),
-        Binding("5", "show_tab('drops')", "Drops"),
+        Binding("5", "show_tab('capture')", "Capture"),
+        Binding("6", "show_tab('drops')", "Drops"),
         Binding("w", "conns_sub('sub-wan')", "WAN conns"),
         Binding("l", "conns_sub('sub-lan')", "LAN conns"),
+        Binding("f", "capture_filter", "Filter"),
+        Binding("s", "capture_stop", "Stop cap"),
     ]
 
     def __init__(
@@ -177,6 +184,10 @@ class FwTopApp(App):
         self._start_time = 0.0
         self._timer = None
         self._last_interfaces: list[str] = []
+        # Packet capture is tab-driven (not per-tick), so it lives here rather
+        # than inside the Collector. It only runs while the Capture tab is up.
+        self.capture = CaptureSource(demo=demo)
+        self._capture_filter: CaptureFilter | None = None
 
     def compose(self) -> ComposeResult:
         yield Header()
@@ -198,6 +209,8 @@ class FwTopApp(App):
                 yield FirewallPanel(id="fw-table")
             with TabPane("Chains", id="chains"):
                 yield ChainPanel(id="chain-panel")
+            with TabPane("Capture", id="capture"):
+                yield CapturePanel(id="capture-panel")
             with TabPane("Drops", id="drops"):
                 yield DropsHeatmap(id="drops-heatmap")
         yield Label("", id="status-label", markup=False)
@@ -227,6 +240,7 @@ class FwTopApp(App):
         self.query_one("#conns-table").border_title = "Connections"
         self.query_one("#fw-table").border_title = "Firewall Counters"
         self.query_one("#chain-panel").border_title = "Chain Rule Counters"
+        self.query_one("#capture-panel").border_title = "Packet Capture"
 
         self._timer = self.set_interval(self.refresh_interval, self._refresh)
         self._refresh()
@@ -280,6 +294,23 @@ class FwTopApp(App):
         conns.update_stats(snap.connections)
         self.query_one("#fw-table", FirewallPanel).update_stats(snap.firewall)
         self.query_one("#chain-panel", ChainPanel).update_stats(snap.firewall)
+
+        self._refresh_capture()
+
+    def _refresh_capture(self) -> None:
+        """Drain the capture source into the panel — only while on the tab.
+
+        Capture is left running by ``s``/leaving the tab, but we only pay the
+        drain + render cost when the Capture tab is the one on screen.
+        """
+        if not self.capture.running:
+            return
+        if self.query_one("#main-tabs", TabbedContent).active != "capture":
+            return
+        packets, iface_totals, zone_totals = self.capture.drain()
+        panel = self.query_one("#capture-panel", CapturePanel)
+        panel.set_iface_zones({i: self.config.zone_for(i) for i in iface_totals})
+        panel.update_stats(packets, iface_totals, zone_totals)
 
     def _status_line(self) -> str:
         def mark(name: str, st) -> str:
@@ -344,6 +375,54 @@ class FwTopApp(App):
             return
         self.push_screen(ZoneScreen(list(self._last_interfaces), self.config))
 
+    # ── capture ──────────────────────────────────────────────────────────
+
+    def action_capture_filter(self) -> None:
+        """Prompt for a filter, then (re)start capture on the current ifaces."""
+        self.query_one("#main-tabs", TabbedContent).active = "capture"
+        self.push_screen(FilterModal(self._capture_filter), self._on_filter_chosen)
+
+    def _on_filter_chosen(self, filt: CaptureFilter | None) -> None:
+        if filt is None:
+            return
+        self._capture_filter = filt
+        panel = self.query_one("#capture-panel", CapturePanel)
+        if not self.capture.status.available:
+            panel.set_status(f"capture unavailable: {self.capture.status.detail}", "#ff5050")
+            return
+        panel.reset()
+        if self.capture.demo:
+            self.capture.set_demo_filter(filt.ports, filt.proto)
+        self.capture.start(filt.to_bpf(), self._last_interfaces, self.config.zone_for)
+        panel.set_status(f"capturing  {filt.describe()}  ({len(self._last_interfaces)} ifaces)", "#50ffa0")
+
+    def action_capture_stop(self) -> None:
+        if not self.capture.running:
+            return
+        self.capture.stop()
+        try:
+            self.query_one("#capture-panel", CapturePanel).set_status(
+                "capture stopped — press 'f' to start again", "#ffa050"
+            )
+        except Exception:
+            pass
+
+    def on_tabbed_content_tab_activated(
+        self, event: TabbedContent.TabActivated
+    ) -> None:
+        # Leaving the Capture tab stops capture so tcpdump doesn't linger.
+        if event.tabbed_content.id != "main-tabs":
+            return
+        if event.tabbed_content.active != "capture" and self.capture.running:
+            self.capture.stop()
+            try:
+                self.query_one("#capture-panel", CapturePanel).set_status(
+                    "capture stopped (left tab) — press 'f' to start", "#ffa050"
+                )
+            except Exception:
+                pass
+
     def on_unmount(self) -> None:
         if self.resolver is not None:
             self.resolver.stop()
+        self.capture.stop()

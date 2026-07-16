@@ -147,3 +147,59 @@ class ConntrackSummary(NamedTuple):
     by_state: dict[str, int]
     nat_count: int
     max_entries: Optional[int]  # conntrack table capacity, if known
+
+
+class Packet(NamedTuple):
+    """A single captured packet (from the tcpdump-backed capture source).
+
+    Unlike the other models, which are kernel counters, this is a real packet
+    observed on the wire. ``length`` is the on-wire frame length in bytes; the
+    capture panel sums these per tick to derive a filtered-throughput rate.
+    """
+
+    ts: float              # capture timestamp (epoch seconds)
+    iface: str             # interface it was seen on
+    zone: str              # wan / wan_tunnel / lan / lan_tunnel / other
+    proto: str             # tcp, udp, icmp, ...
+    src: str               # source ip
+    sport: int             # source port (0 if not applicable)
+    dst: str               # destination ip
+    dport: int             # destination port (0 if not applicable)
+    length: int            # frame length in bytes
+    text: str = ""         # tcpdump-style display line (as tcpdump prints it)
+
+    @property
+    def is_wan_facing(self) -> bool:
+        """True if either endpoint is a public address.
+
+        Captured packets carry no NAT reply tuple, so — unlike
+        :class:`Connection` — WAN/LAN is inferred purely from whether an
+        endpoint is public. Packets between two private endpoints are LAN.
+        """
+        return not is_private_ip(self.src) or not is_private_ip(self.dst)
+
+
+class CaptureFilter(NamedTuple):
+    """A user-entered capture filter: a set of ports and an L4 protocol.
+
+    ``proto`` is one of ``tcp`` / ``udp`` / ``icmp`` / ``any``. ``to_bpf``
+    renders it as a tcpdump/BPF expression, e.g. ``(tcp) and (port 80 or
+    port 443)``.
+    """
+
+    ports: tuple[int, ...] = ()
+    proto: str = "any"
+
+    def to_bpf(self) -> str:
+        terms: list[str] = []
+        if self.proto in ("tcp", "udp", "icmp"):
+            terms.append(f"({self.proto})")
+        if self.ports:
+            port_expr = " or ".join(f"port {p}" for p in self.ports)
+            terms.append(f"({port_expr})")
+        return " and ".join(terms)
+
+    def describe(self) -> str:
+        proto = self.proto if self.proto != "any" else "any proto"
+        ports = ",".join(str(p) for p in self.ports) if self.ports else "all ports"
+        return f"{proto} · {ports}"
