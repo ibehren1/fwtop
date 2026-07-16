@@ -5,6 +5,7 @@ from .interface_table import InterfaceTable
 from .conntrack_panel import ConntrackPanel
 from .connections_table import ConnectionsTable
 from .firewall_panel import FirewallPanel
+from .chain_panel import ChainPanel
 from .cpu_panel import CpuPanel
 
 __all__ = [
@@ -15,5 +16,6 @@ __all__ = [
     "ConntrackPanel",
     "ConnectionsTable",
     "FirewallPanel",
+    "ChainPanel",
     "CpuPanel",
 ]

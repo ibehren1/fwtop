@@ -13,6 +13,7 @@ from fwtop.collector import Collector
 from fwtop.config import ZONE_CYCLE, Config
 from fwtop.resolve import Resolver
 from fwtop.widgets import (
+    ChainPanel,
     ConnectionsTable,
     ConntrackPanel,
     CpuPanel,
@@ -151,7 +152,8 @@ class FwTopApp(App):
         Binding("1", "show_tab('overview')", "Overview"),
         Binding("2", "show_tab('connections')", "Connections"),
         Binding("3", "show_tab('firewall')", "Firewall"),
-        Binding("4", "show_tab('drops')", "Drops"),
+        Binding("4", "show_tab('chains')", "Chains"),
+        Binding("5", "show_tab('drops')", "Drops"),
         Binding("w", "conns_sub('sub-wan')", "WAN conns"),
         Binding("l", "conns_sub('sub-lan')", "LAN conns"),
     ]
@@ -194,6 +196,8 @@ class FwTopApp(App):
                 yield ConnectionsTable(id="conns-table")
             with TabPane("Firewall", id="firewall"):
                 yield FirewallPanel(id="fw-table")
+            with TabPane("Chains", id="chains"):
+                yield ChainPanel(id="chain-panel")
             with TabPane("Drops", id="drops"):
                 yield DropsHeatmap(id="drops-heatmap")
         yield Label("", id="status-label", markup=False)
@@ -222,6 +226,7 @@ class FwTopApp(App):
         self.query_one("#interfaces").border_title = "Interfaces"
         self.query_one("#conns-table").border_title = "Connections"
         self.query_one("#fw-table").border_title = "Firewall Counters"
+        self.query_one("#chain-panel").border_title = "Chain Rule Counters"
 
         self._timer = self.set_interval(self.refresh_interval, self._refresh)
         self._refresh()
@@ -274,6 +279,7 @@ class FwTopApp(App):
         conns.set_resolver(self.resolver if self.resolve_enabled else None)
         conns.update_stats(snap.connections)
         self.query_one("#fw-table", FirewallPanel).update_stats(snap.firewall)
+        self.query_one("#chain-panel", ChainPanel).update_stats(snap.firewall)
 
     def _status_line(self) -> str:
         def mark(name: str, st) -> str:

@@ -25,6 +25,7 @@ The Connections tab — WAN and LAN sub-tabs, with both endpoints reverse-DNS re
 - **Per-interface flows** — RX/TX rates, cumulative totals, and error/drop counters for every interface, so forwarded (through) traffic is visible per link
 - **Conntrack view** — live netfilter connection table: protocol & TCP-state breakdown, NAT translations, and table-capacity gauge
 - **Firewall drops** — nftables (or iptables) rule counters with per-rule packet/byte rates; drops and rejects sorted to the top
+- **Chain drill-down** — pick any `table/chain` and inspect every rule's counter in ruleset order, like `nft list chain` / `iptables -L <chain>`
 - **Drops heatmap** — a ticking grid, one row per drop/reject rule, colored smoke→fire (gray low, red high) so spikes light up at a glance
 - **Zone categorization** — label each interface WAN / WAN-Tunnel / LAN / LAN-Tunnel / other; saved to a config file and editable at runtime
 - Side-by-side rolling 60-second throughput charts — **WAN in red shades, LAN in green shades**, each overlaying its physical link and its tunnel (WireGuard/GRE/IPsec) traffic, braille-dot plotted
@@ -115,7 +116,8 @@ sudo fwtop -r -n 0.5
 | `1` | Overview tab |
 | `2` | Connections tab |
 | `3` | Firewall tab |
-| `4` | Drops tab |
+| `4` | Chains tab |
+| `5` | Drops tab |
 | `w` | Connections tab, WAN sub-tab |
 | `l` | Connections tab, LAN sub-tab |
 
@@ -173,6 +175,15 @@ never pins a resolvable address to its raw IP.
 Every firewall rule counter, with **drops and rejects sorted to the top** and
 color-coded by verdict. Shows per-rule packet/byte rates so a spike in
 dropped traffic (a scan, a brute-force attempt, a misconfig) jumps out.
+
+### Chains tab
+
+A chain-by-chain drill-down. A picker on the left lists every `table/chain`
+seen in the ruleset (with its rule count, and highlighted red when the chain is
+actively dropping); selecting one shows **that chain's rules in ruleset order**
+on the right — rule position, verdict, live packet/byte rates, and cumulative
+totals. Where the Firewall tab flattens everything drops-first, this reads like
+`nft list chain` / `iptables -L <chain>` for inspecting one chain end to end.
 
 ### Drops tab
 

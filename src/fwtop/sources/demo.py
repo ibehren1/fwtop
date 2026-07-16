@@ -51,12 +51,20 @@ class DemoSource:
             name: dict(rx_b=0, tx_b=0, rx_p=0, tx_p=0, rx_e=0, tx_e=0, rx_d=0, tx_d=0)
             for name in _IFACES
         }
+        # Keyed by (table, chain, label, verdict); ordered so each chain reads
+        # like a real ruleset (early accepts, targeted drops, final policy).
         self._fw_acc = {
+            ("inet filter", "input", "accept established", "accept"): [0, 0],
+            ("inet filter", "input", "accept loopback", "accept"): [0, 0],
             ("inet filter", "input", "drop ssh bruteforce", "drop"): [0, 0],
             ("inet filter", "input", "drop invalid ct state", "drop"): [0, 0],
-            ("inet filter", "forward", "reject smb to wan", "reject"): [0, 0],
-            ("inet filter", "input", "accept established", "accept"): [0, 0],
+            ("inet filter", "input", "drop policy", "drop"): [0, 0],
+            ("inet filter", "forward", "accept established", "accept"): [0, 0],
             ("inet filter", "forward", "accept lan to wan", "accept"): [0, 0],
+            ("inet filter", "forward", "reject smb to wan", "reject"): [0, 0],
+            ("inet filter", "forward", "drop wan to lan", "drop"): [0, 0],
+            ("inet nat", "postrouting", "masquerade lan to wan", "accept"): [0, 0],
+            ("inet nat", "prerouting", "dnat https to web", "accept"): [0, 0],
         }
         self._available = SourceStatus(True, "demo / synthetic data")
 

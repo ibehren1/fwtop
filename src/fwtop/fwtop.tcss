@@ -95,7 +95,7 @@ Footer {
 
 /* ── Connections, Firewall & Drops tabs: full-bleed panels ── */
 
-#conns-table, #fw-table, #drops-heatmap {
+#conns-table, #fw-table, #chain-panel, #drops-heatmap {
     height: 1fr;
     margin: 0 1;
     border: round #303050;
@@ -109,6 +109,10 @@ Footer {
 
 #fw-table {
     border-title-color: #ff5050;
+}
+
+#chain-panel {
+    border-title-color: #ffa050;
 }
 
 #drops-heatmap {
