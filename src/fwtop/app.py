@@ -378,9 +378,12 @@ class FwTopApp(App):
     # ── capture ──────────────────────────────────────────────────────────
 
     def action_capture_filter(self) -> None:
-        """Prompt for a filter, then (re)start capture on the current ifaces."""
+        """Prompt for a filter, then (re)start capture on the chosen ifaces."""
         self.query_one("#main-tabs", TabbedContent).active = "capture"
-        self.push_screen(FilterModal(self._capture_filter), self._on_filter_chosen)
+        self.push_screen(
+            FilterModal(self._capture_filter, self._last_interfaces),
+            self._on_filter_chosen,
+        )
 
     def _on_filter_chosen(self, filt: CaptureFilter | None) -> None:
         if filt is None:
@@ -391,10 +394,16 @@ class FwTopApp(App):
             panel.set_status(f"capture unavailable: {self.capture.status.detail}", "#ff5050")
             return
         panel.reset()
+        # A blank iface means all interfaces (the default); otherwise capture
+        # on just the one the user picked, if it's still present.
+        if filt.iface and filt.iface in self._last_interfaces:
+            interfaces = [filt.iface]
+        else:
+            interfaces = list(self._last_interfaces)
         if self.capture.demo:
             self.capture.set_demo_filter(filt.ports, filt.proto)
-        self.capture.start(filt.to_bpf(), self._last_interfaces, self.config.zone_for)
-        panel.set_status(f"capturing  {filt.describe()}  ({len(self._last_interfaces)} ifaces)", "#50ffa0")
+        self.capture.start(filt.to_bpf(), interfaces, self.config.zone_for)
+        panel.set_status(f"capturing  {filt.describe()}  ({len(interfaces)} ifaces)", "#50ffa0")
 
     def action_capture_stop(self) -> None:
         if not self.capture.running:

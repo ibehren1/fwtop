@@ -120,7 +120,13 @@ class CapturePanel(Widget):
         self.query_one("#cap-wan").border_title = "WAN matched"
         self.query_one("#cap-lan").border_title = "LAN matched"
         self.query_one("#cap-ifaces").border_title = "Interfaces (matched)"
-        self.query_one("#cap-packets").border_title = "Packets"
+        # Legend: each protocol name in the same color its packet lines use.
+        self.query_one("#cap-packets").border_title = (
+            f"Packets  ("
+            f"[{_PROTO_COLORS['tcp']}]TCP[/] · "
+            f"[{_PROTO_COLORS['udp']}]UDP[/] · "
+            f"[{_PROTO_COLORS['icmp']}]ICMP[/])"
+        )
         dt = self.query_one("#cap-ifaces", DataTable)
         dt.cursor_type = "row"
         # Zebra striping off so the zone heading rows read as clean separators,
