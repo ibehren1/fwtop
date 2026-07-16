@@ -52,12 +52,26 @@ class FilterModal(ModalScreen[CaptureFilter | None]):
     }
     """
 
-    def __init__(self, current: CaptureFilter | None = None) -> None:
+    # Select value standing in for "capture on every interface". Select can't
+    # hold an empty string as a value, so we use this sentinel and map it back
+    # to CaptureFilter.iface="" on submit.
+    _ALL_IFACES = "\x00all"
+
+    def __init__(
+        self,
+        current: CaptureFilter | None = None,
+        interfaces: list[str] | None = None,
+    ) -> None:
         super().__init__()
         self._current = current or CaptureFilter()
+        self._interfaces = list(interfaces or [])
 
     def compose(self) -> ComposeResult:
         ports = ", ".join(str(p) for p in self._current.ports)
+        iface_options = [("all interfaces", self._ALL_IFACES)]
+        iface_options += [(name, name) for name in self._interfaces]
+        # Preselect the current interface if it's still present, else "all".
+        iface_value = self._current.iface if self._current.iface in self._interfaces else self._ALL_IFACES
         with Vertical(id="filter-dialog"):
             yield Label("Capture filter")
             yield Input(
@@ -70,6 +84,12 @@ class FilterModal(ModalScreen[CaptureFilter | None]):
                 value=self._current.proto,
                 allow_blank=False,
                 id="filter-proto",
+            )
+            yield Select(
+                iface_options,
+                value=iface_value,
+                allow_blank=False,
+                id="filter-iface",
             )
             yield Label("Enter to start capture · Escape to cancel", classes="hint")
 
@@ -89,7 +109,10 @@ class FilterModal(ModalScreen[CaptureFilter | None]):
         proto = self.query_one("#filter-proto", Select).value
         if not isinstance(proto, str):
             proto = "any"
-        self.dismiss(CaptureFilter(ports=tuple(ports), proto=proto))
+        iface = self.query_one("#filter-iface", Select).value
+        if not isinstance(iface, str) or iface == self._ALL_IFACES:
+            iface = ""
+        self.dismiss(CaptureFilter(ports=tuple(ports), proto=proto, iface=iface))
 
     def on_input_submitted(self, event: Input.Submitted) -> None:
         self._submit()

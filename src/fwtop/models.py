@@ -184,11 +184,13 @@ class CaptureFilter(NamedTuple):
 
     ``proto`` is one of ``tcp`` / ``udp`` / ``icmp`` / ``any``. ``to_bpf``
     renders it as a tcpdump/BPF expression, e.g. ``(tcp) and (port 80 or
-    port 443)``.
+    port 443)``. ``iface`` restricts capture to a single interface; empty
+    means all interfaces (the default).
     """
 
     ports: tuple[int, ...] = ()
     proto: str = "any"
+    iface: str = ""
 
     def to_bpf(self) -> str:
         terms: list[str] = []
@@ -202,4 +204,5 @@ class CaptureFilter(NamedTuple):
     def describe(self) -> str:
         proto = self.proto if self.proto != "any" else "any proto"
         ports = ",".join(str(p) for p in self.ports) if self.ports else "all ports"
-        return f"{proto} · {ports}"
+        iface = self.iface or "all ifaces"
+        return f"{iface} · {proto} · {ports}"
