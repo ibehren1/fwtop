@@ -79,6 +79,16 @@ class FilterModal(ModalScreen[CaptureFilter | None]):
                 placeholder="ports, e.g. 80, 443, 53  (blank = all)",
                 id="filter-ports",
             )
+            yield Input(
+                value=self._current.src,
+                placeholder="source address  (blank = any)",
+                id="filter-src",
+            )
+            yield Input(
+                value=self._current.dst,
+                placeholder="destination address  (blank = any)",
+                id="filter-dst",
+            )
             yield Select(
                 [(p, p) for p in _PROTOS],
                 value=self._current.proto,
@@ -112,7 +122,11 @@ class FilterModal(ModalScreen[CaptureFilter | None]):
         iface = self.query_one("#filter-iface", Select).value
         if not isinstance(iface, str) or iface == self._ALL_IFACES:
             iface = ""
-        self.dismiss(CaptureFilter(ports=tuple(ports), proto=proto, iface=iface))
+        src = self.query_one("#filter-src", Input).value.strip()
+        dst = self.query_one("#filter-dst", Input).value.strip()
+        self.dismiss(CaptureFilter(
+            ports=tuple(ports), proto=proto, iface=iface, src=src, dst=dst,
+        ))
 
     def on_input_submitted(self, event: Input.Submitted) -> None:
         self._submit()

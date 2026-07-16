@@ -180,17 +180,21 @@ class Packet(NamedTuple):
 
 
 class CaptureFilter(NamedTuple):
-    """A user-entered capture filter: a set of ports and an L4 protocol.
+    """A user-entered capture filter: ports, protocol, endpoints, interface.
 
-    ``proto`` is one of ``tcp`` / ``udp`` / ``icmp`` / ``any``. ``to_bpf``
-    renders it as a tcpdump/BPF expression, e.g. ``(tcp) and (port 80 or
-    port 443)``. ``iface`` restricts capture to a single interface; empty
-    means all interfaces (the default).
+    ``proto`` is one of ``tcp`` / ``udp`` / ``icmp`` / ``any``. ``src`` / ``dst``
+    are optional host addresses (matched with BPF ``src host`` / ``dst host``);
+    empty means unrestricted. ``iface`` restricts capture to a single
+    interface; empty means all interfaces (the default). ``to_bpf`` renders the
+    whole thing as a tcpdump/BPF expression, e.g. ``(tcp) and (port 80 or
+    port 443) and (src host 10.0.0.1) and (dst host 8.8.8.8)``.
     """
 
     ports: tuple[int, ...] = ()
     proto: str = "any"
     iface: str = ""
+    src: str = ""
+    dst: str = ""
 
     def to_bpf(self) -> str:
         terms: list[str] = []
@@ -199,10 +203,19 @@ class CaptureFilter(NamedTuple):
         if self.ports:
             port_expr = " or ".join(f"port {p}" for p in self.ports)
             terms.append(f"({port_expr})")
+        if self.src:
+            terms.append(f"(src host {self.src})")
+        if self.dst:
+            terms.append(f"(dst host {self.dst})")
         return " and ".join(terms)
 
     def describe(self) -> str:
         proto = self.proto if self.proto != "any" else "any proto"
         ports = ",".join(str(p) for p in self.ports) if self.ports else "all ports"
         iface = self.iface or "all ifaces"
-        return f"{iface} · {proto} · {ports}"
+        parts = [iface, proto, ports]
+        if self.src:
+            parts.append(f"src {self.src}")
+        if self.dst:
+            parts.append(f"dst {self.dst}")
+        return " · ".join(parts)

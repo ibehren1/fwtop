@@ -196,8 +196,11 @@ totals. Where the Firewall tab flattens everything drops-first, this reads like
 
 An interactive tcpdump. Press **`f`** to enter a filter — a list of ports
 (e.g. `80, 443, 53`; blank for all), a protocol (`tcp` / `udp` / `icmp` /
-`any`), and an interface (a specific link, or **all interfaces** — the
-default) — and fwtop starts capturing just that traffic. Laid out like the
+`any`), source and destination addresses (blank for any), and an interface
+(a specific link, or **all interfaces** — the default) — and fwtop starts
+capturing just that traffic. The filter is remembered, so reopening it with
+**`f`** (even after leaving and returning to the tab) shows your last values.
+Laid out like the
 Overview tab, three stacked panels update together: two rolling charts split
 the matched flow's throughput into **WAN** (red) and **LAN** (green); a table
 breaks the same traffic down **per interface** (packet/byte rates and totals);
