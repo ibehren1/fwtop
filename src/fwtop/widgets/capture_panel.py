@@ -22,6 +22,9 @@ from fwtop.widgets.throughput_chart import (
 # Rolling history length, matching the Overview charts (collector.HISTORY_SIZE).
 _HISTORY = 60
 
+# Zone section order, matching the Overview Interfaces table.
+_ZONE_ORDER = ("wan", "wan_tunnel", "lan", "lan_tunnel", "other")
+
 _ZONE_STYLE = {
     "wan": "bold #ff5050",
     "wan_tunnel": "bold #ff9664",
@@ -120,8 +123,10 @@ class CapturePanel(Widget):
         self.query_one("#cap-packets").border_title = "Packets"
         dt = self.query_one("#cap-ifaces", DataTable)
         dt.cursor_type = "row"
-        dt.zebra_stripes = True
-        dt.add_columns("Interface", "Zone", "Pkt/s", "Bytes/s", "Total Pkts", "Total Bytes")
+        # Zebra striping off so the zone heading rows read as clean separators,
+        # matching the Overview Interfaces table.
+        dt.zebra_stripes = False
+        dt.add_columns("Interface", "Pkt/s", "Bytes/s", "Total Pkts", "Total Bytes")
 
     def reset(self) -> None:
         """Clear histories, deltas, and the packet list when a capture starts."""
@@ -197,19 +202,29 @@ class CapturePanel(Widget):
         except Exception:
             return
         dt.clear()
-        # Busiest interface (by cumulative bytes) first.
-        for iface in sorted(iface_totals, key=lambda k: iface_totals[k][1], reverse=True):
-            pkts, byts = iface_totals[iface]
-            pps, bps = rate(self._prev_iface, iface, (pkts, byts))
-            zone = self._zone_of(iface)
-            dt.add_row(
-                Text(iface, style="bold #50a0ff"),
-                Text(ZONE_LABELS.get(zone, zone), style=_ZONE_STYLE.get(zone, "#8080a0")),
-                Text(f"{pps:,.0f}", style="#c0c0d0" if pps else "#606080"),
-                Text(format_mbps(bps), style="#50ffa0" if bps else "#606080"),
-                f"{pkts:,}",
-                format_bytes(byts),
+        # Group by zone in the fixed order, each under a heading and stable-
+        # sorted by name — matching the Overview Interfaces table.
+        blanks = ["", "", "", ""]
+        for zone in _ZONE_ORDER:
+            members = sorted(
+                (i for i in iface_totals if self._zone_of(i) == zone), key=str
             )
+            if not members:
+                continue
+            dt.add_row(
+                Text(ZONE_LABELS.get(zone, zone), style=_ZONE_STYLE.get(zone, "#8080a0")),
+                *blanks,
+            )
+            for iface in members:
+                pkts, byts = iface_totals[iface]
+                pps, bps = rate(self._prev_iface, iface, (pkts, byts))
+                dt.add_row(
+                    Text(f"  {iface}", style="bold #50a0ff"),
+                    Text(f"{pps:,.0f}", style="#c0c0d0" if pps else "#606080"),
+                    Text(format_mbps(bps), style="#50ffa0" if bps else "#606080"),
+                    f"{pkts:,}",
+                    format_bytes(byts),
+                )
 
     def _render_packets(self, packets: list[Packet]) -> None:
         if not packets:
