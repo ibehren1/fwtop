@@ -191,16 +191,18 @@ class CaptureSource:
             except ValueError:
                 pass
 
-        proto = self._infer_proto(line)
         m = _V4_PAIR.search(line)
         if m is not None:
             src, sport, dst, dport = m.group(1), int(m.group(2)), m.group(3), int(m.group(4))
+            has_ports = True
         else:
             mnp = _V4_NOPORT.search(line)
             if mnp is None:
                 return None
             src, sport, dst, dport = mnp.group(1), 0, mnp.group(2), 0
+            has_ports = False
 
+        proto = self._infer_proto(line, has_ports)
         zone = self._zone_for(iface)
         text = self._display_line(ts, iface, line, m_len.end())
         return Packet(
@@ -224,15 +226,25 @@ class CaptureSource:
         return f"{stamp} {iface} IP {payload}"
 
     @staticmethod
-    def _infer_proto(line: str) -> str:
+    def _infer_proto(line: str, has_ports: bool) -> str:
+        """Classify the L4 protocol from a tcpdump line.
+
+        tcpdump only prints an explicit "UDP" token for payloads it doesn't
+        decode; for DNS, QUIC, NTP, etc. it prints the app-layer summary with
+        no "udp" word, so a literal token match misses most UDP. Instead: TCP
+        always prints "Flags [", ICMP always prints "ICMP"/"ICMP6"; any other
+        packet that still has a port pair is UDP in practice.
+        """
         low = line.lower()
-        # tcpdump prints "Flags [..]" for TCP, "UDP," for UDP, "ICMP" for ICMP.
-        if "flags [" in low or " tcp " in low:
+        if "flags [" in low:
             return "tcp"
-        if "udp" in low:
-            return "udp"
         if "icmp" in low:
             return "icmp"
+        if "udp" in low:
+            return "udp"
+        # Ports but neither TCP flags nor ICMP -> UDP (DNS/QUIC/NTP/...).
+        if has_ports:
+            return "udp"
         return "ip"
 
     def _record(self, pkt: Packet) -> None:

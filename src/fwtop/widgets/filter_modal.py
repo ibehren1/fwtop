@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from textual.app import ComposeResult
+from textual.binding import Binding
 from textual.containers import Vertical
 from textual.screen import ModalScreen
 from textual.widgets import Input, Label, Select
@@ -11,12 +12,22 @@ _PROTOS = ("any", "tcp", "udp", "icmp")
 
 
 class FilterModal(ModalScreen[CaptureFilter | None]):
-    """Prompt for a capture filter: a list of ports and an L4 protocol.
+    """Prompt for a capture filter: ports, protocol, endpoints, interface.
 
     Dismisses with a :class:`CaptureFilter` on submit, or ``None`` on cancel.
     This is the app's first value-returning modal (pushed with a callback);
     styling mirrors ZoneScreen for visual consistency.
     """
+
+    # Submit/cancel live as bindings, not a bare ``key_enter``: a screen-level
+    # Enter handler would swallow Enter before the focused Select could use it
+    # to open its dropdown, breaking keyboard selection. Enter in a text field
+    # still submits (via on_input_submitted); a Select consumes Enter to open,
+    # and its overlay consumes Escape to close, both before these bindings run.
+    BINDINGS = [
+        Binding("ctrl+s", "submit", "Start capture", priority=True),
+        Binding("escape", "cancel", "Cancel"),
+    ]
 
     DEFAULT_CSS = """
     FilterModal {
@@ -101,7 +112,10 @@ class FilterModal(ModalScreen[CaptureFilter | None]):
                 allow_blank=False,
                 id="filter-iface",
             )
-            yield Label("Enter to start capture · Escape to cancel", classes="hint")
+            yield Label(
+                "Enter (in a field) or Ctrl+S to start · Escape to cancel",
+                classes="hint",
+            )
 
     def on_mount(self) -> None:
         self.query_one("#filter-ports", Input).focus()
@@ -129,10 +143,11 @@ class FilterModal(ModalScreen[CaptureFilter | None]):
         ))
 
     def on_input_submitted(self, event: Input.Submitted) -> None:
+        # Enter while typing in any of the text fields submits the form.
         self._submit()
 
-    def key_enter(self) -> None:
+    def action_submit(self) -> None:
         self._submit()
 
-    def key_escape(self) -> None:
+    def action_cancel(self) -> None:
         self.dismiss(None)
