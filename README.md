@@ -1,5 +1,7 @@
 [![Build binaries](https://github.com/ibehren1/fwtop/actions/workflows/build.yml/badge.svg)](https://github.com/ibehren1/fwtop/actions/workflows/build.yml)
-[<img src="https://img.shields.io/badge/Download-Latest%20Release-blue?style=for-the-badge&logo=github" alt="Download the latest release" height="40">](https://github.com/ibehren1/fwtop/releases/latest)
+![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/ibehren1/fwtop/total)
+
+
 
 # fwtop
 
