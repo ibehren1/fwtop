@@ -295,7 +295,7 @@ Release with the artifacts attached.
 
 ## Requirements
 
-- Python >= 3.10
+- Python >= 3.11
 - Linux (for live data); any platform for `--demo`
 - Root privileges to read conntrack and the firewall ruleset
 - The `tcpdump` binary, only if you use the Capture tab (optional)
