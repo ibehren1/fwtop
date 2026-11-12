@@ -1,3 +1,4 @@
+![GitHub Release](https://img.shields.io/github/v/release/ibehren1/fwtop)
 [![Build binaries](https://github.com/ibehren1/fwtop/actions/workflows/build.yml/badge.svg)](https://github.com/ibehren1/fwtop/actions/workflows/build.yml)
 ![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/ibehren1/fwtop/total)
 
